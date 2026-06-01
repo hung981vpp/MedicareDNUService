@@ -1,0 +1,117 @@
+@MedicalAPI_HostAddress = http://localhost:5287
+
+GET {{MedicalAPI_HostAddress}}/
+Accept: application/json
+
+###
+
+GET {{MedicalAPI_HostAddress}}/api/v1/medical/patients?pageNumber=1&pageSize=3
+Accept: application/json
+X-Request-Id: REQ-001
+
+###
+
+POST {{MedicalAPI_HostAddress}}/api/v1/medical/patients
+Content-Type: application/json
+X-Request-Id: REQ-002
+
+{
+  "fullName": "Lê Thị B",
+  "dateOfBirth": "1998-02-14",
+  "gender": "Nữ",
+  "phoneNumber": "0912345678",
+  "email": "lethib@example.com",
+  "address": "Quận Cầu Giấy, Hà Nội",
+  "citizenId": "001198000001",
+  "bloodType": "A",
+  "allergyNote": "Chưa ghi nhận",
+  "medicalHistory": "Không có bệnh nền"
+}
+
+###
+
+GET {{MedicalAPI_HostAddress}}/api/v1/medical/visits/today
+Accept: application/json
+X-Request-Id: REQ-003
+
+###
+
+POST {{MedicalAPI_HostAddress}}/api/v1/medical/records
+Content-Type: application/json
+X-Request-Id: REQ-004
+
+{
+  "visitId": 1,
+  "diagnosisCode": "J00",
+  "diagnosisText": "Viêm mũi họng cấp",
+  "doctorNote": "Bệnh nhân sốt nhẹ, đau họng, nghẹt mũi, chưa khó thở",
+  "treatmentPlan": "Nghỉ ngơi, uống nhiều nước, dùng thuốc theo đơn",
+  "followUpDate": "2026-06-03"
+}
+
+###
+
+PUT {{MedicalAPI_HostAddress}}/api/v1/medical/records/1/complete
+Accept: application/json
+X-Request-Id: REQ-005
+
+###
+
+POST {{MedicalAPI_HostAddress}}/api/v1/medical/prescriptions
+Content-Type: application/json
+X-Request-Id: REQ-006
+
+{
+  "medicalRecordId": 1,
+  "note": "Uống thuốc sau bữa ăn"
+}
+
+###
+
+POST {{MedicalAPI_HostAddress}}/api/v1/medical/prescriptions/1/items
+Content-Type: application/json
+X-Request-Id: REQ-007
+
+{
+  "medicineId": 1,
+  "medicineNameSnapshot": "Paracetamol 500mg",
+  "unitSnapshot": "Viên",
+  "dosage": "1 viên/lần",
+  "frequency": "3 lần/ngày",
+  "durationDays": 5,
+  "quantity": 15,
+  "usageInstruction": "Uống sau ăn",
+  "note": "Ngừng sử dụng nếu có dấu hiệu dị ứng"
+}
+
+###
+
+PUT {{MedicalAPI_HostAddress}}/api/v1/medical/prescriptions/1/submit
+Content-Type: application/json
+X-Request-Id: REQ-008
+
+{
+  "medicalRecordId": 1,
+  "note": "Tái khám nếu sốt kéo dài hoặc có dấu hiệu khó thở",
+  "items": [
+    {
+      "medicineId": 1,
+      "medicineNameSnapshot": "Paracetamol 500mg",
+      "unitSnapshot": "Viên",
+      "dosage": "1 viên/lần",
+      "frequency": "3 lần/ngày",
+      "durationDays": 5,
+      "quantity": 15,
+      "usageInstruction": "Uống sau ăn",
+      "note": "Ngừng sử dụng nếu có dấu hiệu dị ứng"
+    }
+  ]
+}
+
+###
+
+GET {{MedicalAPI_HostAddress}}/api/v1/medical/events/outbox
+Accept: application/json
+X-Request-Id: REQ-009
+
+###

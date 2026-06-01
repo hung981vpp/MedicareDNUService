@@ -1,0 +1,52 @@
+services:
+  medical-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medical-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__MedicalDb: Host=medical-postgres;Port=5432;Database=MedicalDB;Username=postgres;Password=123456
+    ports:
+      - "5287:8080"
+    depends_on:
+      medical-postgres:
+        condition: service_healthy
+
+  medical-postgres:
+    image: postgres:16
+    container_name: medical-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: MedicalDB
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+    ports:
+      - "5432:5432"
+    volumes:
+      - medical_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d MedicalDB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  medical-pgadmin:
+    image: dpage/pgadmin4
+    container_name: medical-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@medical.com
+      PGADMIN_DEFAULT_PASSWORD: "123456"
+    ports:
+      - "5050:80"
+    depends_on:
+      - medical-postgres
+    volumes:
+      - medical_pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  medical_postgres_data:
+  medical_pgadmin_data:

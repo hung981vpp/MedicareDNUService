@@ -1,0 +1,31 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "AppointmentServiceDb",
+      "Group": "Clinic Services",
+      "Host": "appointment-postgres",
+      "Port": 5432,
+      "MaintenanceDB": "AppointmentServiceDb",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "MedicalDB",
+      "Group": "Clinic Services",
+      "Host": "medical-postgres",
+      "Port": 5432,
+      "MaintenanceDB": "MedicalDB",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "3": {
+      "Name": "PharmacyDB",
+      "Group": "Clinic Services",
+      "Host": "pharmacy-postgres",
+      "Port": 5432,
+      "MaintenanceDB": "PharmacyDB",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
