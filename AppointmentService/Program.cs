@@ -37,6 +37,8 @@ builder.Services.AddDbContext<AppointmentDbContext>(options =>
 });
 
 builder.Services.AddScoped<IAppointmentService, DbAppointmentService>();
+builder.Services.AddHttpClient();
+builder.Services.AddHostedService<OutboxPublisherWorker>();
 
 var jwtKey = builder.Configuration["Jwt:SharedSecret"]
     ?? builder.Configuration["Jwt:Key"]
@@ -129,7 +131,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Appointment Service API",
         Version = "v1",
-        Description = "N1 Appointment Service backend API. Public API routes use /api/appointments, /api/doctors, /api/specialties, /api/doctor-schedules, /api/waiting-queue. Service-to-service contracts for N2/N3 use /api/integration/appointments."
+        Description = "N1 Appointment Service backend API. Public API routes use /api/doctors, /api/specialties and /api/doctor-schedules. Appointment booking and operation routes require JWT. Service-to-service contracts for N2/N3 use /api/integration/appointments."
     });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

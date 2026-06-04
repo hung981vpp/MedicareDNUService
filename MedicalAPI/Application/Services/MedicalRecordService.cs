@@ -131,6 +131,14 @@ public sealed class MedicalRecordService(
             : Result<VisitDetailDto>.Ok(ToVisitDetail(visit), "Lấy thông tin lượt khám thành công");
     }
 
+    public Result<VisitDetailDto> GetVisitByAppointment(int appointmentId)
+    {
+        var visit = db.Visits.AsNoTracking().FirstOrDefault(v => v.AppointmentId == appointmentId);
+        return visit is null
+            ? NotFound<VisitDetailDto>("Không tìm thấy lượt khám tương ứng với lịch hẹn")
+            : Result<VisitDetailDto>.Ok(ToVisitDetail(visit), "Lấy lượt khám theo lịch hẹn thành công");
+    }
+
     public Result<VisitDetailDto> CreateVisit(VisitCreateRequest request)
     {
         if (FindPatient(request.PatientId) is null) return NotFound<VisitDetailDto>("Không tìm thấy bệnh nhân");
@@ -216,6 +224,14 @@ public sealed class MedicalRecordService(
     {
         var visit = db.Visits.FirstOrDefault(v => v.Id == request.VisitId);
         if (visit is null) return NotFound<MedicalRecordDetailDto>("Không tìm thấy lượt khám");
+        
+        if (visit.Status == MedicalStatuses.WaitingForExam)
+        {
+            visit.Status = MedicalStatuses.InProgress;
+            visit.StartedAt = DateTime.UtcNow;
+            db.SaveChanges();
+        }
+
         if (visit.Status != MedicalStatuses.InProgress) return Conflict<MedicalRecordDetailDto>("Lượt khám chưa ở trạng thái đang khám");
         if (db.MedicalRecords.Any(r => r.VisitId == request.VisitId)) return Conflict<MedicalRecordDetailDto>("Lượt khám đã có bệnh án");
         if (string.IsNullOrWhiteSpace(request.DiagnosisText))
@@ -397,7 +413,7 @@ public sealed class MedicalRecordService(
         var outbox = CreatePrescriptionCreatedOutbox(prescription, items);
         db.SaveChanges();
         transaction.Commit();
-        DispatchPrescriptionCreatedEvent(prescription, items, outbox);
+        // Removed synchronous call to DispatchPrescriptionCreatedEvent, handled by Background Worker.
 
         var record = db.MedicalRecords.AsNoTracking().First(r => r.Id == prescription.MedicalRecordId);
         return Result<PrescriptionSubmitDto>.Ok(
@@ -558,15 +574,31 @@ public sealed class MedicalRecordService(
 
         var snapshot = db.AppointmentSnapshots.FirstOrDefault(a => a.AppointmentId == request.Data.AppointmentId);
         if (snapshot?.PatientId is null) return Conflict<EventResultDto>("Lịch hẹn chưa sẵn sàng để khám");
-        if (db.Visits.Any(v => v.AppointmentId == request.Data.AppointmentId)) return Conflict<EventResultDto>("Lịch hẹn đã có lượt khám");
+        var existingVisit = db.Visits.FirstOrDefault(v => v.AppointmentId == request.Data.AppointmentId);
+        if (existingVisit is not null)
+        {
+            if (IsInProgressEvent(request.Data.Status) && existingVisit.Status == MedicalStatuses.WaitingForExam)
+            {
+                existingVisit.DoctorId = request.Data.DoctorId;
+                existingVisit.Status = MedicalStatuses.InProgress;
+                existingVisit.StartedAt = request.Data.CheckedInAt;
+                existingVisit.UpdatedAt = DateTime.UtcNow;
+            }
 
+            AddInbox(request.Source, request.EventCode, request.EventType, JsonSerializer.Serialize(request));
+            db.SaveChanges();
+            return Result<EventResultDto>.Ok(new(request.EventCode, request.EventType, MedicalStatuses.Processed, $"Lượt khám {existingVisit.VisitCode} đã tồn tại"), "Event check-in đã được đồng bộ trước đó");
+        }
+
+        var isInProgress = IsInProgressEvent(request.Data.Status);
         var visit = new Visit
         {
             AppointmentId = snapshot.AppointmentId,
             PatientId = snapshot.PatientId.Value,
             DoctorId = request.Data.DoctorId,
             VisitDate = request.Data.CheckedInAt,
-            Status = MedicalStatuses.WaitingForExam
+            Status = isInProgress ? MedicalStatuses.InProgress : MedicalStatuses.WaitingForExam,
+            StartedAt = isInProgress ? request.Data.CheckedInAt : null
         };
 
         db.Visits.Add(visit);
@@ -577,6 +609,10 @@ public sealed class MedicalRecordService(
 
         return Result<EventResultDto>.Ok(new(request.EventCode, request.EventType, MedicalStatuses.Processed, $"Đã tạo lượt khám {visit.VisitCode}"), "Xử lý event check-in thành công");
     }
+
+    private static bool IsInProgressEvent(string? status)
+        => string.Equals(status, "InProgress", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, MedicalStatuses.InProgress, StringComparison.OrdinalIgnoreCase);
 
     public Result<IReadOnlyList<OutboxEventDto>> GetOutboxEvents(string? status)
     {
@@ -649,99 +685,58 @@ public sealed class MedicalRecordService(
             ? null
             : db.AppointmentSnapshots.AsNoTracking().FirstOrDefault(a => a.AppointmentId == visit.AppointmentId);
 
-        var payload = new
-        {
-            eventType = "prescription.created",
-            source = "MedicalRecordService",
-            occurredAt = DateTime.UtcNow,
-            data = new
-            {
-                prescriptionId = prescription.Id,
-                prescriptionCode = prescription.PrescriptionCode,
-                medicalRecordId = record.Id,
-                medicalRecordCode = record.MedicalRecordCode,
-                visitId = visit.Id,
-                visitCode = visit.VisitCode,
-                appointmentId = visit.AppointmentId,
-                patient = new { patientId = patient.Id, patientCode = patient.PatientCode, patient.FullName, patient.PhoneNumber },
-                doctor = new { doctorId = prescription.DoctorId, doctorName = snapshot?.DoctorNameSnapshot },
-                diagnosis = new { record.DiagnosisCode, record.DiagnosisText },
-                items = items.Select(i => new
-                {
-                    prescriptionItemId = i.Id,
-                    prescriptionItemCode = i.PrescriptionItemCode,
-                    medicineId = i.MedicineId,
-                    medicineName = i.MedicineNameSnapshot,
-                    unit = i.UnitSnapshot,
-                    i.Dosage,
-                    i.Frequency,
-                    i.DurationDays,
-                    i.Quantity,
-                    i.UsageInstruction
-                }),
-                prescription.Note
-            }
-        };
-
         var outbox = new OutboxEvent
         {
             EventType = "prescription.created",
             AggregateType = nameof(Prescription),
             AggregateId = prescription.Id,
-            Payload = JsonSerializer.Serialize(payload)
+            Payload = string.Empty
         };
         db.OutboxEvents.Add(outbox);
         db.SaveChanges();
-        outbox.EventCode = $"N2EV{outbox.Id:D3}";
+
+        var eventCode = $"N2EV{outbox.Id:D3}";
+        outbox.EventCode = eventCode;
+
+        var payload = new
+        {
+            eventCode = eventCode,
+            eventType = "prescription.created",
+            source = "MedicalRecordService",
+            occurredAt = DateTime.UtcNow,
+            prescriptionId = prescription.Id,
+            prescriptionCode = prescription.PrescriptionCode,
+            medicalRecordId = record.Id,
+            visitId = visit.Id,
+            appointmentId = visit.AppointmentId,
+            patientId = patient.Id,
+            patientCode = patient.PatientCode,
+            patientName = patient.FullName,
+            phoneNumber = patient.PhoneNumber,
+            doctorId = prescription.DoctorId,
+            doctorName = snapshot?.DoctorNameSnapshot ?? "Unknown Doctor",
+            diagnosis = record.DiagnosisText,
+            items = items.Select(i => new
+            {
+                medicineId = i.MedicineId,
+                medicineName = i.MedicineNameSnapshot,
+                unit = i.UnitSnapshot,
+                dosage = i.Dosage,
+                frequency = i.Frequency,
+                durationDays = i.DurationDays,
+                quantity = (int)Math.Ceiling(i.Quantity),
+                usageInstruction = i.UsageInstruction
+            }).ToList()
+        };
+
+        outbox.Payload = JsonSerializer.Serialize(payload);
+        db.SaveChanges();
         return outbox;
     }
 
     private void DispatchPrescriptionCreatedEvent(Prescription prescription, IReadOnlyList<PrescriptionItem> items, OutboxEvent outbox)
     {
-        try
-        {
-            var pharmacyBaseUrl = configuration["ServiceUrls:PharmacyBillingService"] ?? "http://pharmacy-billing-service:8080";
-            var payload = new
-            {
-                EventName = "prescription.created",
-                PrescriptionId = prescription.Id,
-                prescription.PatientId,
-                prescription.DoctorId,
-                AppointmentId = (from record in db.MedicalRecords
-                                 join visit in db.Visits on record.VisitId equals visit.Id
-                                 where record.Id == prescription.MedicalRecordId
-                                 select visit.AppointmentId).FirstOrDefault(),
-                MedicalRecordId = prescription.MedicalRecordId,
-                CreatedAt = DateTime.UtcNow,
-                Items = items.Select(i => new
-                {
-                    i.MedicineId,
-                    MedicineName = i.MedicineNameSnapshot,
-                    Quantity = (int)Math.Ceiling(i.Quantity),
-                    i.Dosage
-                }).ToArray()
-            };
-
-            using var response = httpClientFactory.CreateClient().PostAsJsonAsync(
-                $"{pharmacyBaseUrl.TrimEnd('/')}/api/events/simulate-prescription-created",
-                payload,
-                _jsonOptions).GetAwaiter().GetResult();
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                logger.LogWarning("Không gửi được prescription.created sang N3. Status: {Status}. Body: {Body}", response.StatusCode, body);
-                return;
-            }
-
-            outbox.Status = MedicalStatuses.Published;
-            outbox.PublishedAt = DateTime.UtcNow;
-            db.SaveChanges();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Không gửi được prescription.created sang N3.");
-        }
+        // No-op. Handled by background worker.
     }
 
     private void CopyAuthorizationHeader(HttpRequestMessage request)

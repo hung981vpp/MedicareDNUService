@@ -130,6 +130,8 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 builder.Services.AddScoped<IMedicalRecordService, MedicalRecordService>();
+builder.Services.AddHttpClient();
+builder.Services.AddHostedService<MedicalOutboxPublisherWorker>();
 
 var app = builder.Build();
 

@@ -1,0 +1,254 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 96m
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-gateway
+    networks:
+      - clinic-network
+
+  api-gateway:
+    build:
+      context: ./ApiGateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__Key: SuperSecretKeyForPharmacyBillingServiceThatIsAtLeast32BytesLong!
+      Jwt__Issuer: PharmacyBillingService
+      Jwt__Audience: PharmacyBillingService
+      MEDICAL_API_URL: http://medical-api:8080
+      PHARMACY_API_URL: http://pharmacy-billing-service:8080
+      APPOINTMENT_API_URL: http://appointment-service:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - appointment-service
+      - medical-api
+      - pharmacy-billing-service
+    networks:
+      - clinic-network
+
+  appointment-service:
+    build:
+      context: ./AppointmentService
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__SharedSecret: SuperSecretKeyForPharmacyBillingServiceThatIsAtLeast32BytesLong!
+      Jwt__Issuer: PharmacyBillingService
+      Jwt__Audience: PharmacyBillingService
+      ConnectionStrings__AppointmentDatabase: Host=appointment-postgres;Port=5432;Database=AppointmentServiceDb;Username=postgres;Password=123456;Trust Server Certificate=true
+      ServiceUrls__MedicalRecordService: http://medical-api:8080
+      ServiceUrls__PharmacyBillingService: http://pharmacy-billing-service:8080
+    depends_on:
+      appointment-postgres:
+        condition: service_healthy
+    networks:
+      - clinic-network
+
+  appointment-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 160m
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=30
+    environment:
+      POSTGRES_DB: AppointmentServiceDb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+    volumes:
+      - appointment_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d AppointmentServiceDb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clinic-network
+
+  medical-api:
+    build:
+      context: ./MedicalAPI
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__SharedSecret: SuperSecretKeyForPharmacyBillingServiceThatIsAtLeast32BytesLong!
+      Jwt__Issuer: PharmacyBillingService
+      Jwt__Audience: PharmacyBillingService
+      ServiceUrls__PharmacyBillingService: http://pharmacy-billing-service:8080
+      ConnectionStrings__MedicalDb: Host=medical-postgres;Port=5432;Database=MedicalDB;Username=postgres;Password=123456
+    depends_on:
+      medical-postgres:
+        condition: service_healthy
+    networks:
+      - clinic-network
+
+  medical-postgres:
+    image: postgres:16
+    restart: unless-stopped
+    mem_limit: 192m
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=30
+    environment:
+      POSTGRES_DB: MedicalDB
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+    volumes:
+      - medical_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d MedicalDB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clinic-network
+
+  pharmacy-billing-service:
+    build:
+      context: ./PharmacyBillingService
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__Key: SuperSecretKeyForPharmacyBillingServiceThatIsAtLeast32BytesLong!
+      Jwt__Issuer: PharmacyBillingService
+      Jwt__Audience: PharmacyBillingService
+      ConnectionStrings__DefaultConnection: Host=pharmacy-postgres;Port=5432;Database=PharmacyDB;Username=postgres;Password=123456;Include Error Detail=true
+    depends_on:
+      pharmacy-postgres:
+        condition: service_healthy
+    networks:
+      - clinic-network
+
+  pharmacy-postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    mem_limit: 160m
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=30
+    environment:
+      POSTGRES_DB: PharmacyDB
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+    ports:
+      - "5433:5432"
+    volumes:
+      - pharmacy_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d PharmacyDB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clinic-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    restart: unless-stopped
+    mem_limit: 192m
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - clinic-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    profiles:
+      - tools
+    restart: "no"
+    mem_limit: 192m
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@clinic.com
+      PGADMIN_DEFAULT_PASSWORD: "123456"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      appointment-postgres:
+        condition: service_healthy
+      medical-postgres:
+        condition: service_healthy
+      pharmacy-postgres:
+        condition: service_healthy
+    networks:
+      - clinic-network
+
+volumes:
+  appointment_postgres_data:
+  medical_postgres_data:
+  pharmacy_postgres_data:
+  rabbitmq_data:
+  pgadmin_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  clinic-network:
+    name: clinic-shared-network
+    driver: bridge

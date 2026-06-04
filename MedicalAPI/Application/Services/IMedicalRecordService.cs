@@ -13,6 +13,7 @@ public interface IMedicalRecordService
 
     Result<IReadOnlyList<VisitDetailDto>> GetTodayVisits(int? doctorId);
     Result<VisitDetailDto> GetVisit(int id);
+    Result<VisitDetailDto> GetVisitByAppointment(int appointmentId);
     Result<VisitDetailDto> CreateVisit(VisitCreateRequest request);
     Result<VisitDetailDto> StartVisit(int id, VisitStartRequest request);
     Result<VisitDetailDto> UpdateVitals(int id, VisitVitalsRequest request);

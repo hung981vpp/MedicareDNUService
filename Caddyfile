@@ -1,0 +1,4 @@
+api.hwpresents.site {
+	encode gzip
+	reverse_proxy api-gateway:8080
+}

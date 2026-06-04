@@ -148,7 +148,7 @@ public sealed class MedicalDbContext(DbContextOptions<MedicalDbContext> options)
     private static void ConfigureInboxEvents(ModelBuilder modelBuilder)
     {
         var entity = modelBuilder.Entity<InboxEvent>();
-        entity.HasIndex(e => e.EventCode).IsUnique();
+        entity.HasIndex(e => new { e.SourceService, e.EventCode }).IsUnique();
         entity.Property(e => e.EventCode).HasMaxLength(30);
         entity.Property(e => e.SourceService).HasMaxLength(100);
         entity.Property(e => e.EventType).HasMaxLength(100);

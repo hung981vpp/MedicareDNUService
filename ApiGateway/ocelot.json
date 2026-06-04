@@ -1,0 +1,104 @@
+{
+  "Routes": [
+    {
+      "UpstreamPathTemplate": "/pharmacy/api/auth/login",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/auth/login",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/pharmacy/api/auth/register",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/auth/register",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/appointment/api/specialties/{everything}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/api/specialties/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "appointment-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/appointment/api/specialties",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/api/specialties",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "appointment-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/appointment/api/doctors/{everything}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/api/doctors/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "appointment-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/appointment/api/doctors",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/api/doctors",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "appointment-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/appointment/api/doctor-schedules/{everything}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/api/doctor-schedules/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "appointment-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/appointment/api/doctor-schedules",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/api/doctor-schedules",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "appointment-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/appointment/{everything}",
+      "DownstreamPathTemplate": "/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "appointment-service", "Port": 8080 } ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "Priority": 1
+    },
+    {
+      "UpstreamPathTemplate": "/medical/{everything}",
+      "DownstreamPathTemplate": "/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "medical-api", "Port": 8080 } ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "Priority": 1
+    },
+    {
+      "UpstreamPathTemplate": "/pharmacy/{everything}",
+      "DownstreamPathTemplate": "/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "Priority": 1
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://api-gateway:8080"
+  }
+}

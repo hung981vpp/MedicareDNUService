@@ -30,6 +30,8 @@ public interface IAppointmentService
 
     ServiceResult<AppointmentDto> CompleteAppointment(int id);
 
+    ServiceResult<AppointmentDto> CheckInAppointment(int id);
+
     ServiceResult<AppointmentForMedicalDto> GetMedicalInfo(int appointmentId);
 
     ServiceResult<BillingInfoDto> GetBillingInfo(int appointmentId);

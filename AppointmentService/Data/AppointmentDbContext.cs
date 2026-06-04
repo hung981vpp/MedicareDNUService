@@ -21,8 +21,24 @@ public sealed class AppointmentDbContext : DbContext
 
     public DbSet<QueueEntry> WaitingQueues => Set<QueueEntry>();
 
+    public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<OutboxEvent>(entity =>
+        {
+            entity.ToTable("OutboxEvents");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.EventCode).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.EventType).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Payload).IsRequired();
+            entity.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.OccurredAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(x => x.Status);
+            entity.HasIndex(x => x.EventCode).IsUnique();
+        });
+
+
         modelBuilder.Entity<Specialty>(entity =>
         {
             entity.ToTable("Specialties");

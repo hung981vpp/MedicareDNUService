@@ -1,12 +1,15 @@
-using System.Net.Http.Headers;
-using System.Text.Json.Nodes;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Ocelot.DependencyInjection;
+using Ocelot.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
 const string frontendCorsPolicy = "FrontendCorsPolicy";
+
+builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange: true);
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKeyForPharmacyBillingServiceThatIsAtLeast32BytesLong!";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PharmacyBillingService";
@@ -14,7 +17,7 @@ var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PharmacyBillingServi
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer("Bearer", options =>
     {
         options.RequireHttpsMetadata = false;
         options.TokenValidationParameters = new TokenValidationParameters
@@ -29,6 +32,7 @@ builder.Services
             ClockSkew = TimeSpan.Zero
         };
     });
+
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
@@ -41,11 +45,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddHttpClient("proxy")
+builder.Services.AddHttpClient("swagger-proxy")
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
         AllowAutoRedirect = false
     });
+builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();
 
@@ -56,22 +61,70 @@ var appointmentBaseUrl = GetRequiredUri("APPOINTMENT_API_URL", "http://appointme
 app.UseCors(frontendCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.Use(async (context, next) =>
 {
-    if (IsPublicRequest(context.Request)
-        || context.User.Identity?.IsAuthenticated == true)
+    var path = context.Request.Path.Value ?? string.Empty;
+
+    if (path.Equals("/", StringComparison.OrdinalIgnoreCase))
     {
-        await next();
+        await context.Response.WriteAsJsonAsync(new
+        {
+            service = "Clinic API Gateway",
+            gateway = "Ocelot",
+            routes = new
+            {
+                appointment = "/appointment",
+                medical = "/medical",
+                pharmacy = "/pharmacy",
+                health = "/health"
+            }
+        });
         return;
     }
 
-    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-    await context.Response.WriteAsJsonAsync(new { message = "Missing or invalid JWT token." });
+    if (path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+    {
+        await context.Response.WriteAsJsonAsync(new
+        {
+            status = "Healthy",
+            service = "Clinic API Gateway",
+            gateway = "Ocelot",
+            timestamp = DateTime.UtcNow
+        });
+        return;
+    }
+
+    if (path.Equals("/swagger/v1/swagger.json", StringComparison.OrdinalIgnoreCase))
+    {
+        var routePrefix = GetRoutePrefixFromReferer(context.Request.Headers.Referer.ToString());
+        var upstream = GetUpstream(routePrefix, appointmentBaseUrl, medicalBaseUrl, pharmacyBaseUrl);
+
+        await ProxySwaggerJsonAsync(context, context.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("swagger-proxy"), upstream, routePrefix);
+        return;
+    }
+
+    var swaggerRoute = TryParseGatewaySwaggerRoute(path);
+    if (swaggerRoute is not null)
+    {
+        await ProxySwaggerAsync(
+            swaggerRoute.Value.Service,
+            swaggerRoute.Value.Path,
+            context,
+            context.RequestServices.GetRequiredService<IHttpClientFactory>(),
+            appointmentBaseUrl,
+            medicalBaseUrl,
+            pharmacyBaseUrl);
+        return;
+    }
+
+    await next();
 });
 
 app.MapGet("/", () => Results.Ok(new
 {
     service = "Clinic API Gateway",
+    gateway = "Ocelot",
     routes = new
     {
         appointment = "/appointment",
@@ -85,6 +138,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "Healthy",
     service = "Clinic API Gateway",
+    gateway = "Ocelot",
     timestamp = DateTime.UtcNow
 }));
 
@@ -92,49 +146,30 @@ app.MapGet("/swagger/v1/swagger.json", async (
     HttpContext context,
     IHttpClientFactory httpClientFactory) =>
 {
-    var referer = context.Request.Headers.Referer.ToString();
-    var routePrefix = referer.Contains("/pharmacy/", StringComparison.OrdinalIgnoreCase)
-        ? "pharmacy"
-        : referer.Contains("/appointment/", StringComparison.OrdinalIgnoreCase)
-            ? "appointment"
-        : "medical";
-    var upstream = routePrefix switch
-    {
-        "pharmacy" => pharmacyBaseUrl,
-        "appointment" => appointmentBaseUrl,
-        _ => medicalBaseUrl
-    };
+    var routePrefix = GetRoutePrefixFromReferer(context.Request.Headers.Referer.ToString());
+    var upstream = GetUpstream(routePrefix, appointmentBaseUrl, medicalBaseUrl, pharmacyBaseUrl);
 
-    await ProxySwaggerJsonAsync(context, httpClientFactory.CreateClient("proxy"), upstream, routePrefix);
-});
+    await ProxySwaggerJsonAsync(context, httpClientFactory.CreateClient("swagger-proxy"), upstream, routePrefix);
+}).AllowAnonymous();
 
-app.Map("/{service}/{**path}", async (
+app.Map("/{service}/swagger", async (
+    string service,
+    HttpContext context,
+    IHttpClientFactory httpClientFactory) =>
+{
+    await ProxySwaggerAsync(service, string.Empty, context, httpClientFactory, appointmentBaseUrl, medicalBaseUrl, pharmacyBaseUrl);
+}).AllowAnonymous();
+
+app.Map("/{service}/swagger/{**path}", async (
     string service,
     string? path,
     HttpContext context,
     IHttpClientFactory httpClientFactory) =>
 {
-    var upstream = service.ToLowerInvariant() switch
-    {
-        "medical" => medicalBaseUrl,
-        "pharmacy" => pharmacyBaseUrl,
-        "appointment" => appointmentBaseUrl,
-        _ => null
-    };
+    await ProxySwaggerAsync(service, path ?? string.Empty, context, httpClientFactory, appointmentBaseUrl, medicalBaseUrl, pharmacyBaseUrl);
+}).AllowAnonymous();
 
-    if (upstream is null)
-    {
-        context.Response.StatusCode = StatusCodes.Status404NotFound;
-        await context.Response.WriteAsJsonAsync(new
-        {
-            message = "Unknown gateway route",
-            supportedRoutes = new[] { "/appointment", "/medical", "/pharmacy" }
-        });
-        return;
-    }
-
-    await ProxyAsync(context, httpClientFactory.CreateClient("proxy"), upstream, service.ToLowerInvariant(), path ?? string.Empty);
-});
+await app.UseOcelot();
 
 app.Run();
 
@@ -146,69 +181,70 @@ static Uri GetRequiredUri(string key, string fallback)
         : throw new InvalidOperationException($"{key} must be an absolute URL.");
 }
 
-static bool IsPublicRequest(HttpRequest request)
+static string GetRoutePrefixFromReferer(string referer)
 {
-    var path = request.Path.Value ?? string.Empty;
-    var isGet = HttpMethods.IsGet(request.Method);
-    var isPost = HttpMethods.IsPost(request.Method);
-    return path == "/"
-        || HttpMethods.IsOptions(request.Method)
-        || path.Equals("/health", StringComparison.OrdinalIgnoreCase)
-        || path.StartsWith("/swagger/", StringComparison.OrdinalIgnoreCase)
-        || path.Contains("/swagger/", StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/pharmacy/api/auth/login", StringComparison.OrdinalIgnoreCase)
-        || (isPost && path.Equals("/pharmacy/api/auth/register", StringComparison.OrdinalIgnoreCase))
-        || path.Equals("/pharmacy/api/events/simulate-prescription-created", StringComparison.OrdinalIgnoreCase)
-        || (isGet && path.StartsWith("/appointment/api/specialties", StringComparison.OrdinalIgnoreCase))
-        || (isGet && path.StartsWith("/appointment/api/doctors", StringComparison.OrdinalIgnoreCase))
-        || (isGet && path.StartsWith("/appointment/api/doctor-schedules", StringComparison.OrdinalIgnoreCase))
-        || (isPost && path.Equals("/appointment/api/appointments", StringComparison.OrdinalIgnoreCase))
-        || path.EndsWith("/health", StringComparison.OrdinalIgnoreCase)
-        || path.EndsWith("/api/health", StringComparison.OrdinalIgnoreCase);
+    if (referer.Contains("/pharmacy/", StringComparison.OrdinalIgnoreCase)) return "pharmacy";
+    if (referer.Contains("/appointment/", StringComparison.OrdinalIgnoreCase)) return "appointment";
+    return "medical";
 }
 
-static async Task ProxyAsync(HttpContext context, HttpClient httpClient, Uri upstreamBaseUrl, string routePrefix, string path)
-{
-    var targetUri = BuildTargetUri(context.Request, upstreamBaseUrl, path);
-
-    using var requestMessage = new HttpRequestMessage
+static Uri GetUpstream(string routePrefix, Uri appointmentBaseUrl, Uri medicalBaseUrl, Uri pharmacyBaseUrl)
+    => routePrefix.ToLowerInvariant() switch
     {
-        Method = new HttpMethod(context.Request.Method),
-        RequestUri = targetUri
+        "appointment" => appointmentBaseUrl,
+        "medical" => medicalBaseUrl,
+        "pharmacy" => pharmacyBaseUrl,
+        _ => throw new InvalidOperationException("Unsupported swagger route.")
     };
 
-    CopyRequestHeaders(context.Request, requestMessage);
-
-    if (HttpMethods.IsPost(context.Request.Method)
-        || HttpMethods.IsPut(context.Request.Method)
-        || HttpMethods.IsPatch(context.Request.Method)
-        || HttpMethods.IsDelete(context.Request.Method))
+static (string Service, string Path)? TryParseGatewaySwaggerRoute(string requestPath)
+{
+    var parts = requestPath.Trim('/').Split('/', 3, StringSplitOptions.RemoveEmptyEntries);
+    if (parts.Length < 2 || !parts[1].Equals("swagger", StringComparison.OrdinalIgnoreCase))
     {
-        requestMessage.Content = new StreamContent(context.Request.Body);
-        foreach (var header in context.Request.Headers)
-        {
-            requestMessage.Content.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
-        }
+        return null;
     }
 
-    using var responseMessage = await httpClient.SendAsync(
-        requestMessage,
-        HttpCompletionOption.ResponseHeadersRead,
-        context.RequestAborted);
+    var service = parts[0].ToLowerInvariant();
+    if (service is not ("appointment" or "medical" or "pharmacy"))
+    {
+        return null;
+    }
 
-    if (ShouldServeSwaggerUiShell(path, responseMessage))
+    return (service, parts.Length == 2 ? string.Empty : parts[2]);
+}
+
+static async Task ProxySwaggerAsync(
+    string service,
+    string path,
+    HttpContext context,
+    IHttpClientFactory httpClientFactory,
+    Uri appointmentBaseUrl,
+    Uri medicalBaseUrl,
+    Uri pharmacyBaseUrl)
+{
+    var routePrefix = service.ToLowerInvariant();
+    if (routePrefix is not ("appointment" or "medical" or "pharmacy"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        await context.Response.WriteAsJsonAsync(new { message = "Unknown gateway route" });
+        return;
+    }
+
+    var upstream = GetUpstream(routePrefix, appointmentBaseUrl, medicalBaseUrl, pharmacyBaseUrl);
+    var normalizedPath = path.Trim('/');
+
+    if (string.IsNullOrEmpty(normalizedPath) || normalizedPath.Equals("index.html", StringComparison.OrdinalIgnoreCase))
     {
         await WriteSwaggerUiShellAsync(context, routePrefix, GetSwaggerTitle(routePrefix));
         return;
     }
 
-    if (ShouldRewriteSwaggerAsset(path, responseMessage))
-    {
-        await WriteRewrittenSwaggerAssetAsync(context, responseMessage, routePrefix);
-        return;
-    }
+    using var responseMessage = await httpClientFactory
+        .CreateClient("swagger-proxy")
+        .GetAsync(new Uri(upstream, $"/swagger/{normalizedPath}"), HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
 
-    if (ShouldRewriteSwaggerJson(path, responseMessage))
+    if (normalizedPath.Equals("v1/swagger.json", StringComparison.OrdinalIgnoreCase))
     {
         await WriteRewrittenSwaggerJsonAsync(context, responseMessage, routePrefix);
         return;
@@ -217,62 +253,6 @@ static async Task ProxyAsync(HttpContext context, HttpClient httpClient, Uri ups
     context.Response.StatusCode = (int)responseMessage.StatusCode;
     CopyResponseHeaders(context.Response, responseMessage);
     await responseMessage.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
-}
-
-static Uri BuildTargetUri(HttpRequest request, Uri upstreamBaseUrl, string path)
-{
-    var builder = new UriBuilder(upstreamBaseUrl);
-    var basePath = builder.Path.TrimEnd('/');
-    var requestedPath = path.TrimStart('/');
-    builder.Path = string.IsNullOrEmpty(requestedPath) ? basePath : $"{basePath}/{requestedPath}";
-    builder.Query = request.QueryString.HasValue ? request.QueryString.Value![1..] : string.Empty;
-    return builder.Uri;
-}
-
-static void CopyRequestHeaders(HttpRequest request, HttpRequestMessage requestMessage)
-{
-    foreach (var header in request.Headers)
-    {
-        if (header.Key.Equals("Host", StringComparison.OrdinalIgnoreCase))
-        {
-            continue;
-        }
-
-        requestMessage.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
-    }
-
-    requestMessage.Headers.TryAddWithoutValidation("X-Forwarded-Host", request.Host.Value);
-    requestMessage.Headers.TryAddWithoutValidation("X-Forwarded-Proto", request.Scheme);
-    requestMessage.Headers.AcceptEncoding.Clear();
-}
-
-static void CopyResponseHeaders(HttpResponse response, HttpResponseMessage responseMessage)
-{
-    foreach (var header in responseMessage.Headers)
-    {
-        response.Headers[header.Key] = header.Value.ToArray();
-    }
-
-    foreach (var header in responseMessage.Content.Headers)
-    {
-        response.Headers[header.Key] = header.Value.ToArray();
-    }
-
-    response.Headers.Remove("transfer-encoding");
-}
-
-static bool ShouldServeSwaggerUiShell(string path, HttpResponseMessage responseMessage)
-{
-    if (!responseMessage.IsSuccessStatusCode)
-    {
-        return false;
-    }
-
-    var normalizedPath = path.Trim('/').ToLowerInvariant();
-    var mediaType = responseMessage.Content.Headers.ContentType?.MediaType;
-    return normalizedPath is "swagger" or "swagger/index.html"
-        && (mediaType?.Contains("html", StringComparison.OrdinalIgnoreCase) == true
-            || mediaType?.Contains("javascript", StringComparison.OrdinalIgnoreCase) == true);
 }
 
 static async Task WriteSwaggerUiShellAsync(HttpContext context, string routePrefix, string title)
@@ -317,35 +297,6 @@ static async Task WriteSwaggerUiShellAsync(HttpContext context, string routePref
     await context.Response.WriteAsync(html, context.RequestAborted);
 }
 
-static bool ShouldRewriteSwaggerAsset(string path, HttpResponseMessage responseMessage)
-{
-    if (!responseMessage.IsSuccessStatusCode)
-    {
-        return false;
-    }
-
-    var normalizedPath = path.Trim('/').ToLowerInvariant();
-    var mediaType = responseMessage.Content.Headers.ContentType?.MediaType;
-    return normalizedPath is "swagger/index.js"
-        && mediaType?.Contains("javascript", StringComparison.OrdinalIgnoreCase) == true;
-}
-
-static async Task WriteRewrittenSwaggerAssetAsync(
-    HttpContext context,
-    HttpResponseMessage responseMessage,
-    string routePrefix)
-{
-    var content = await responseMessage.Content.ReadAsStringAsync(context.RequestAborted);
-    content = content
-        .Replace("/swagger/v1/swagger.json", $"/{routePrefix}/swagger/v1/swagger.json", StringComparison.OrdinalIgnoreCase)
-        .Replace("\"swagger/v1/swagger.json\"", $"\"/{routePrefix}/swagger/v1/swagger.json\"", StringComparison.OrdinalIgnoreCase);
-
-    context.Response.StatusCode = (int)responseMessage.StatusCode;
-    context.Response.ContentType = responseMessage.Content.Headers.ContentType?.ToString()
-        ?? "text/plain; charset=utf-8";
-    await context.Response.WriteAsync(content, context.RequestAborted);
-}
-
 static string GetSwaggerTitle(string routePrefix)
 {
     return routePrefix.Equals("medical", StringComparison.OrdinalIgnoreCase)
@@ -355,14 +306,18 @@ static string GetSwaggerTitle(string routePrefix)
         : "Pharmacy & Billing Service API";
 }
 
-static bool ShouldRewriteSwaggerJson(string path, HttpResponseMessage responseMessage)
+static async Task ProxySwaggerJsonAsync(
+    HttpContext context,
+    HttpClient httpClient,
+    Uri upstreamBaseUrl,
+    string routePrefix)
 {
-    if (!responseMessage.IsSuccessStatusCode)
-    {
-        return false;
-    }
+    using var responseMessage = await httpClient.GetAsync(
+        new Uri(upstreamBaseUrl, "/swagger/v1/swagger.json"),
+        HttpCompletionOption.ResponseHeadersRead,
+        context.RequestAborted);
 
-    return path.Trim('/').Equals("swagger/v1/swagger.json", StringComparison.OrdinalIgnoreCase);
+    await WriteRewrittenSwaggerJsonAsync(context, responseMessage, routePrefix);
 }
 
 static async Task WriteRewrittenSwaggerJsonAsync(
@@ -370,6 +325,13 @@ static async Task WriteRewrittenSwaggerJsonAsync(
     HttpResponseMessage responseMessage,
     string routePrefix)
 {
+    if (!responseMessage.IsSuccessStatusCode)
+    {
+        context.Response.StatusCode = (int)responseMessage.StatusCode;
+        await responseMessage.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
+        return;
+    }
+
     var json = await responseMessage.Content.ReadAsStringAsync(context.RequestAborted);
     var node = JsonNode.Parse(json) as JsonObject;
 
@@ -388,23 +350,17 @@ static async Task WriteRewrittenSwaggerJsonAsync(
     await context.Response.WriteAsync(json, context.RequestAborted);
 }
 
-static async Task ProxySwaggerJsonAsync(
-    HttpContext context,
-    HttpClient httpClient,
-    Uri upstreamBaseUrl,
-    string routePrefix)
+static void CopyResponseHeaders(HttpResponse response, HttpResponseMessage responseMessage)
 {
-    using var responseMessage = await httpClient.GetAsync(
-        new Uri(upstreamBaseUrl, "/swagger/v1/swagger.json"),
-        HttpCompletionOption.ResponseHeadersRead,
-        context.RequestAborted);
-
-    if (!responseMessage.IsSuccessStatusCode)
+    foreach (var header in responseMessage.Headers)
     {
-        context.Response.StatusCode = (int)responseMessage.StatusCode;
-        await responseMessage.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
-        return;
+        response.Headers[header.Key] = header.Value.ToArray();
     }
 
-    await WriteRewrittenSwaggerJsonAsync(context, responseMessage, routePrefix);
+    foreach (var header in responseMessage.Content.Headers)
+    {
+        response.Headers[header.Key] = header.Value.ToArray();
+    }
+
+    response.Headers.Remove("transfer-encoding");
 }

@@ -128,7 +128,7 @@ public sealed class DbAppointmentService : IAppointmentService
             DoctorId = request.DoctorId,
             AppointmentDate = request.AppointmentDate,
             SlotTime = request.SlotTime,
-            Reason = request.Reason.Trim(),
+            Reason = request.Reason?.Trim() ?? string.Empty,
             Status = AppointmentStatus.Pending,
             QueueNumber = null,
             CreatedAt = DateTime.UtcNow,
@@ -152,47 +152,167 @@ public sealed class DbAppointmentService : IAppointmentService
 
     public ServiceResult<AppointmentDto> ConfirmAppointment(int id)
     {
+        const int maxRetries = 10;
+        int retries = 0;
+
+        while (retries < maxRetries)
+        {
+            using var transaction = _dbContext.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
+            try
+            {
+                var appointment = _dbContext.Appointments.FirstOrDefault(x => x.Id == id);
+                if (appointment is null)
+                {
+                    return ServiceResult<AppointmentDto>.Fail("Appointment not found", ServiceErrorType.NotFound);
+                }
+
+                if (appointment.Status != AppointmentStatus.Pending)
+                {
+                    return ServiceResult<AppointmentDto>.Fail("Only pending appointments can be confirmed", ServiceErrorType.BadRequest);
+                }
+
+                var queueEntry = _dbContext.WaitingQueues.FirstOrDefault(x => x.AppointmentId == id);
+                int assignedQueueNumber = 0;
+
+                if (queueEntry is null)
+                {
+                    var nextQueueNumber = _dbContext.WaitingQueues.Any(x => x.QueueDate == appointment.AppointmentDate)
+                        ? _dbContext.WaitingQueues
+                            .Where(x => x.QueueDate == appointment.AppointmentDate)
+                            .Max(x => x.QueueNumber) + 1
+                        : 1;
+
+                    queueEntry = new QueueEntry
+                    {
+                        AppointmentId = appointment.Id,
+                        PatientId = appointment.PatientId,
+                        DoctorId = appointment.DoctorId,
+                        QueueDate = appointment.AppointmentDate,
+                        QueueNumber = nextQueueNumber,
+                        Status = QueueStatus.Waiting,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _dbContext.WaitingQueues.Add(queueEntry);
+                    appointment.QueueNumber = nextQueueNumber;
+                    assignedQueueNumber = nextQueueNumber;
+                }
+                else
+                {
+                    assignedQueueNumber = queueEntry.QueueNumber;
+                }
+
+                appointment.Status = AppointmentStatus.Confirmed;
+                appointment.UpdatedAt = DateTime.UtcNow;
+
+                var doctor = _dbContext.Doctors.AsNoTracking().First(d => d.Id == appointment.DoctorId);
+                var specialty = _dbContext.Specialties.AsNoTracking().First(s => s.Id == doctor.SpecialtyId);
+
+                var outboxEvent = new OutboxEvent
+                {
+                    EventType = "appointment.confirmed",
+                    Payload = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        eventCode = "", // Will be updated
+                        eventType = "appointment.confirmed",
+                        source = "AppointmentService",
+                        occurredAt = DateTime.UtcNow,
+                        data = new
+                        {
+                            appointmentId = appointment.Id,
+                            patientId = appointment.PatientId,
+                            patientName = appointment.PatientNameSnapshot,
+                            phoneNumber = appointment.PatientPhoneSnapshot,
+                            doctorId = appointment.DoctorId,
+                            doctorName = doctor.FullName,
+                            specialtyId = specialty.Id,
+                            specialtyName = specialty.Name,
+                            scheduledAt = new DateTime(appointment.AppointmentDate.Year, appointment.AppointmentDate.Month, appointment.AppointmentDate.Day, appointment.SlotTime.Hour, appointment.SlotTime.Minute, appointment.SlotTime.Second, DateTimeKind.Utc),
+                            queueNumber = assignedQueueNumber,
+                            status = "Confirmed"
+                        }
+                    }),
+                    Status = "Pending"
+                };
+
+                _dbContext.OutboxEvents.Add(outboxEvent);
+                _dbContext.SaveChanges();
+
+                var eventCode = $"N1EV{outboxEvent.Id:D3}";
+                outboxEvent.EventCode = eventCode;
+                
+                // Update the eventCode in the payload
+                outboxEvent.Payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    eventCode = eventCode,
+                    eventType = "appointment.confirmed",
+                    source = "AppointmentService",
+                    occurredAt = DateTime.UtcNow,
+                    data = new
+                    {
+                        appointmentId = appointment.Id,
+                        patientId = appointment.PatientId,
+                        patientName = appointment.PatientNameSnapshot,
+                        phoneNumber = appointment.PatientPhoneSnapshot,
+                        doctorId = appointment.DoctorId,
+                        doctorName = doctor.FullName,
+                        specialtyId = specialty.Id,
+                        specialtyName = specialty.Name,
+                        scheduledAt = new DateTime(appointment.AppointmentDate.Year, appointment.AppointmentDate.Month, appointment.AppointmentDate.Day, appointment.SlotTime.Hour, appointment.SlotTime.Minute, appointment.SlotTime.Second, DateTimeKind.Utc),
+                        queueNumber = assignedQueueNumber,
+                        status = "Confirmed"
+                    }
+                });
+
+                _dbContext.SaveChanges();
+                transaction.Commit();
+
+                AddIntegrationEvent("AppointmentConfirmed", appointment);
+                return ServiceResult<AppointmentDto>.Ok(ToAppointmentDto(appointment), "Appointment confirmed successfully");
+            }
+            catch (DbUpdateException)
+            {
+                transaction.Rollback();
+                _dbContext.ChangeTracker.Clear();
+                retries++;
+                if (retries >= maxRetries)
+                {
+                    return ServiceResult<AppointmentDto>.Fail("Failed to confirm appointment due to heavy traffic on waiting queue queueNumber.", ServiceErrorType.BadRequest);
+                }
+                System.Threading.Thread.Sleep(50);
+            }
+            catch (Exception)
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        return ServiceResult<AppointmentDto>.Fail("Queue number conflict", ServiceErrorType.BadRequest);
+    }
+
+    public ServiceResult<AppointmentDto> CheckInAppointment(int id)
+    {
         var appointment = _dbContext.Appointments.FirstOrDefault(x => x.Id == id);
         if (appointment is null)
         {
             return ServiceResult<AppointmentDto>.Fail("Appointment not found", ServiceErrorType.NotFound);
         }
 
-        if (appointment.Status != AppointmentStatus.Pending)
+        if (appointment.Status != AppointmentStatus.Confirmed)
         {
-            return ServiceResult<AppointmentDto>.Fail("Only pending appointments can be confirmed", ServiceErrorType.BadRequest);
+            return ServiceResult<AppointmentDto>.Fail("Only confirmed appointments can be checked in", ServiceErrorType.BadRequest);
         }
 
         var queueEntry = _dbContext.WaitingQueues.FirstOrDefault(x => x.AppointmentId == id);
         if (queueEntry is null)
         {
-            var nextQueueNumber = _dbContext.WaitingQueues.Any(x => x.QueueDate == appointment.AppointmentDate)
-                ? _dbContext.WaitingQueues
-                    .Where(x => x.QueueDate == appointment.AppointmentDate)
-                    .Max(x => x.QueueNumber) + 1
-                : 1;
-
-            queueEntry = new QueueEntry
-            {
-                AppointmentId = appointment.Id,
-                PatientId = appointment.PatientId,
-                DoctorId = appointment.DoctorId,
-                QueueDate = appointment.AppointmentDate,
-                QueueNumber = nextQueueNumber,
-                Status = QueueStatus.Waiting,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _dbContext.WaitingQueues.Add(queueEntry);
-            appointment.QueueNumber = nextQueueNumber;
+            return ServiceResult<AppointmentDto>.Fail("Waiting queue entry not found", ServiceErrorType.BadRequest);
         }
 
-        appointment.Status = AppointmentStatus.Confirmed;
-        appointment.UpdatedAt = DateTime.UtcNow;
-        _dbContext.SaveChanges();
+        AddPatientCheckedInEvent(appointment, queueEntry, "CheckedIn");
 
-        AddIntegrationEvent("AppointmentConfirmed", appointment);
-        return ServiceResult<AppointmentDto>.Ok(ToAppointmentDto(appointment), "Appointment confirmed successfully");
+        return ServiceResult<AppointmentDto>.Ok(ToAppointmentDto(appointment), "Patient checked in successfully");
     }
 
     public ServiceResult<AppointmentDto> StartAppointment(int id)
@@ -219,7 +339,7 @@ public sealed class DbAppointmentService : IAppointmentService
         queueEntry.Status = QueueStatus.InProgress;
         _dbContext.SaveChanges();
 
-        AddIntegrationEvent("AppointmentInProgress", appointment);
+        AddPatientCheckedInEvent(appointment, queueEntry, "InProgress");
         return ServiceResult<AppointmentDto>.Ok(ToAppointmentDto(appointment), "Appointment started successfully");
     }
 
@@ -768,7 +888,7 @@ public sealed class DbAppointmentService : IAppointmentService
         appointment.UpdatedAt = DateTime.UtcNow;
         _dbContext.SaveChanges();
 
-        AddIntegrationEvent("AppointmentInProgress", appointment);
+        AddPatientCheckedInEvent(appointment, queueEntry, "InProgress");
         return ServiceResult<QueueEntryDto>.Ok(ToQueueEntryDto(queueEntry), "Waiting queue entry started successfully");
     }
 
@@ -1109,6 +1229,39 @@ public sealed class DbAppointmentService : IAppointmentService
                 OccurredAt = DateTime.UtcNow
             });
         }
+    }
+
+    private void AddPatientCheckedInEvent(Appointment appointment, QueueEntry queueEntry, string status)
+    {
+        var outboxEvent = new OutboxEvent
+        {
+            EventType = "patient.checked_in",
+            Payload = string.Empty,
+            Status = "Pending"
+        };
+
+        _dbContext.OutboxEvents.Add(outboxEvent);
+        _dbContext.SaveChanges();
+
+        var eventCode = $"N1EV{outboxEvent.Id:D3}";
+        outboxEvent.EventCode = eventCode;
+        outboxEvent.Payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            eventCode,
+            eventType = "patient.checked_in",
+            source = "AppointmentService",
+            occurredAt = DateTime.UtcNow,
+            data = new
+            {
+                appointmentId = appointment.Id,
+                doctorId = appointment.DoctorId,
+                queueNumber = appointment.QueueNumber ?? queueEntry.QueueNumber,
+                checkedInAt = DateTime.UtcNow,
+                status
+            }
+        });
+
+        _dbContext.SaveChanges();
     }
 
     private static QueueStatus ToQueueStatus(AppointmentStatus status)

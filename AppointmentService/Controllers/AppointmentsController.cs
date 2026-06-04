@@ -77,7 +77,6 @@ public sealed class AppointmentsController : ControllerBase
     /// Appointment Service API: create a new appointment using patient snapshot data from N2.
     /// </summary>
     [HttpPost]
-    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status400BadRequest)]
     public ActionResult<ApiResponse<AppointmentDto>> Create(CreateAppointmentRequest request)
@@ -138,6 +137,18 @@ public sealed class AppointmentsController : ControllerBase
     public ActionResult<ApiResponse<AppointmentDto>> Complete(int id)
     {
         return ToActionResult(_appointmentService.CompleteAppointment(id));
+    }
+
+    /// <summary>
+    /// Appointment Service API: check in a patient for a confirmed appointment.
+    /// </summary>
+    [HttpPut("{id:int}/check-in")]
+    [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status404NotFound)]
+    public ActionResult<ApiResponse<AppointmentDto>> CheckIn(int id)
+    {
+        return ToActionResult(_appointmentService.CheckInAppointment(id));
     }
 
     private ActionResult<ApiResponse<T>> ToActionResult<T>(ServiceResult<T> result)
