@@ -2,6 +2,7 @@ using AppointmentService.Common;
 using AppointmentService.Dtos.WaitingQueue;
 using AppointmentService.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AppointmentService.Controllers;
 
@@ -22,9 +23,23 @@ public sealed class WaitingQueueController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<QueueEntryDto>>), StatusCodes.Status200OK)]
-    public ActionResult<ApiResponse<IReadOnlyList<QueueEntryDto>>> GetQueue([FromQuery] DateOnly? date)
+    public ActionResult<ApiResponse<IReadOnlyList<QueueEntryDto>>> GetQueue(
+        [FromQuery] DateOnly? date,
+        [FromQuery] int? doctorId,
+        [FromQuery] string? status,
+        [FromQuery] string? keyword)
     {
-        var data = _appointmentService.GetWaitingQueue(date);
+        if (User.IsInRole("Doctor"))
+        {
+            if (!TryGetCurrentDoctorId(out var currentDoctorId))
+            {
+                return Forbid();
+            }
+
+            doctorId = currentDoctorId;
+        }
+
+        var data = _appointmentService.GetWaitingQueue(date, doctorId, status, keyword);
         return Ok(ApiResponse<IReadOnlyList<QueueEntryDto>>.Ok(data, "Waiting queue retrieved successfully"));
     }
 
@@ -48,7 +63,24 @@ public sealed class WaitingQueueController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<QueueEntryDto>), StatusCodes.Status404NotFound)]
     public ActionResult<ApiResponse<QueueEntryDto>> Start(int id)
     {
+        if (!CanDoctorAccessQueueEntry(id))
+        {
+            return Forbid();
+        }
+
         return ToActionResult(_appointmentService.StartQueueEntry(id));
+    }
+
+    /// <summary>
+    /// Appointment Service API: check in a confirmed queue entry.
+    /// </summary>
+    [HttpPut("{id:int}/check-in")]
+    [ProducesResponseType(typeof(ApiResponse<QueueEntryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<QueueEntryDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<QueueEntryDto>), StatusCodes.Status404NotFound)]
+    public ActionResult<ApiResponse<QueueEntryDto>> CheckIn(int id)
+    {
+        return ToActionResult(_appointmentService.CheckInQueueEntry(id));
     }
 
     /// <summary>
@@ -87,5 +119,46 @@ public sealed class WaitingQueueController : ControllerBase
             ServiceErrorType.NotFound => NotFound(response),
             _ => BadRequest(response)
         };
+    }
+
+    private bool CanDoctorAccessQueueEntry(int queueEntryId)
+    {
+        if (!User.IsInRole("Doctor"))
+        {
+            return true;
+        }
+
+        var queueResult = _appointmentService.GetQueueEntryById(queueEntryId);
+        return queueResult.Success &&
+               queueResult.Data is not null &&
+               TryGetCurrentDoctorId(out var doctorId) &&
+               queueResult.Data.DoctorId == doctorId;
+    }
+
+    private bool TryGetCurrentDoctorId(out int doctorId)
+    {
+        doctorId = 0;
+        var doctorIdClaim = User.FindFirst("DoctorId")?.Value;
+        if (int.TryParse(doctorIdClaim, out doctorId) && doctorId > 0)
+        {
+            return true;
+        }
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value
+            ?? User.FindFirst("UserId")?.Value;
+        if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
+        {
+            return false;
+        }
+
+        var doctorResult = _appointmentService.GetDoctorByUserId(userId);
+        if (!doctorResult.Success || doctorResult.Data is null)
+        {
+            return false;
+        }
+
+        doctorId = doctorResult.Data.DoctorId;
+        return true;
     }
 }

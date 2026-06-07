@@ -26,7 +26,7 @@ public interface IAppointmentService
 
     ServiceResult<AppointmentDto> StartAppointment(int id);
 
-    ServiceResult<AppointmentDto> CancelAppointment(int id);
+    ServiceResult<AppointmentDto> CancelAppointment(int id, string? cancelReason = null);
 
     ServiceResult<AppointmentDto> CompleteAppointment(int id);
 
@@ -43,6 +43,8 @@ public interface IAppointmentService
     ServiceResult<IReadOnlyList<TimeOnly>> GetAvailableSlots(int doctorId, DateOnly date);
 
     ServiceResult<DoctorDto> GetDoctorById(int id);
+
+    ServiceResult<DoctorDto> GetDoctorByUserId(int userId);
 
     ServiceResult<DoctorDto> CreateDoctor(CreateDoctorRequest request);
 
@@ -72,15 +74,17 @@ public interface IAppointmentService
 
     ServiceResult<bool> DeleteDoctorSchedule(int id);
 
-    IReadOnlyList<QueueEntryDto> GetWaitingQueue(DateOnly? date);
+    IReadOnlyList<QueueEntryDto> GetWaitingQueue(DateOnly? date, int? doctorId, string? status, string? keyword);
 
     ServiceResult<QueueEntryDto> GetQueueEntryById(int id);
 
     ServiceResult<QueueEntryDto> StartQueueEntry(int id);
 
+    ServiceResult<QueueEntryDto> CheckInQueueEntry(int id);
+
     ServiceResult<QueueEntryDto> CompleteQueueEntry(int id);
 
-    ServiceResult<QueueEntryDto> CancelQueueEntry(int id);
+    ServiceResult<QueueEntryDto> CancelQueueEntry(int id, string? cancelReason = null);
 
     IReadOnlyList<AppointmentEventDto> GetIntegrationEvents();
 }

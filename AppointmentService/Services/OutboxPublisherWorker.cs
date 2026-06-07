@@ -1,21 +1,19 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AppointmentService.Data;
+using AppointmentService.Messaging;
 using AppointmentService.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
+using RabbitMQ.Client;
 
 namespace AppointmentService.Services;
 
@@ -24,18 +22,15 @@ public sealed class OutboxPublisherWorker : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<OutboxPublisherWorker> _logger;
     private readonly IConfiguration _configuration;
-    private readonly IHttpClientFactory _httpClientFactory;
 
     public OutboxPublisherWorker(
         IServiceProvider serviceProvider,
         ILogger<OutboxPublisherWorker> logger,
-        IConfiguration configuration,
-        IHttpClientFactory httpClientFactory)
+        IConfiguration configuration)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _configuration = configuration;
-        _httpClientFactory = httpClientFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -77,22 +72,28 @@ public sealed class OutboxPublisherWorker : BackgroundService
 
         _logger.LogInformation("Found {Count} pending outbox events to publish.", pendingEvents.Count);
 
-        var medicalBaseUrl = _configuration["ServiceUrls:MedicalRecordService"] ?? "http://medical-api:8080";
-        var systemToken = GenerateSystemToken();
-
-        using var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", systemToken);
+        var rabbitOptions = RabbitMqConnectionFactory.GetOptions(_configuration);
+        using var connection = RabbitMqConnectionFactory.CreateConnection(_configuration);
+        using var channel = connection.CreateModel();
+        channel.ExchangeDeclare(rabbitOptions.Exchange, ExchangeType.Topic, durable: true, autoDelete: false);
+        channel.QueueDeclare(rabbitOptions.AppointmentQueue, durable: true, exclusive: false, autoDelete: false);
+        channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.confirmed");
+        channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "patient.checked_in");
+        channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.cancelled");
+        channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.completed");
 
         foreach (var ev in pendingEvents)
         {
-            var targetEndpoint = ev.EventType switch
+            var routingKey = ev.EventType switch
             {
-                "appointment.confirmed" => $"{medicalBaseUrl.TrimEnd('/')}/api/v1/medical/events/appointment-confirmed",
-                "patient.checked_in" => $"{medicalBaseUrl.TrimEnd('/')}/api/v1/medical/events/patient-checked-in",
+                "appointment.confirmed" => "appointment.confirmed",
+                "patient.checked_in" => "patient.checked_in",
+                "appointment.cancelled" => "appointment.cancelled",
+                "appointment.completed" => "appointment.completed",
                 _ => null
             };
 
-            if (targetEndpoint is null)
+            if (routingKey is null)
             {
                 _logger.LogWarning("Unsupported event type {EventType} for Outbox Event {Id}", ev.EventType, ev.Id);
                 ev.Status = "Failed";
@@ -103,22 +104,47 @@ public sealed class OutboxPublisherWorker : BackgroundService
 
             try
             {
-                var content = new StringContent(ev.Payload, Encoding.UTF8, "application/json");
-                var response = await client.PostAsync(targetEndpoint, content, stoppingToken);
+                if (string.IsNullOrWhiteSpace(ev.Payload))
+                {
+                    ev.Status = "Failed";
+                    ev.ErrorMessage = "Outbox payload is empty.";
+                    _logger.LogWarning("Skipped outbox event {EventCode} ({EventType}) because payload is empty.", ev.EventCode, ev.EventType);
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                    continue;
+                }
 
-                if (response.IsSuccessStatusCode)
+                try
                 {
-                    ev.Status = "Processed";
-                    ev.ProcessedAt = DateTime.UtcNow;
-                    _logger.LogInformation("Successfully published outbox event {EventCode} ({EventType}) to {Endpoint}", ev.EventCode, ev.EventType, targetEndpoint);
+                    using var _ = JsonDocument.Parse(ev.Payload);
                 }
-                else
+                catch (JsonException ex)
                 {
-                    var errorResponse = await response.Content.ReadAsStringAsync(stoppingToken);
-                    ev.RetryCount++;
-                    ev.ErrorMessage = $"HTTP {response.StatusCode}: {errorResponse}";
-                    _logger.LogWarning("Failed to publish event {EventCode}. Status: {Status}. Response: {Response}. Retry count: {Retry}", ev.EventCode, response.StatusCode, errorResponse, ev.RetryCount);
+                    ev.Status = "Failed";
+                    ev.ErrorMessage = $"Invalid JSON payload: {ex.Message}";
+                    _logger.LogWarning(ex, "Skipped outbox event {EventCode} ({EventType}) because payload is invalid JSON.", ev.EventCode, ev.EventType);
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                    continue;
                 }
+
+                var body = Encoding.UTF8.GetBytes(ev.Payload);
+                var properties = channel.CreateBasicProperties();
+                properties.Persistent = true;
+                properties.ContentType = "application/json";
+                properties.MessageId = ev.EventCode;
+                properties.Type = ev.EventType;
+                properties.Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+                channel.BasicPublish(
+                    exchange: rabbitOptions.Exchange,
+                    routingKey: routingKey,
+                    mandatory: false,
+                    basicProperties: properties,
+                    body: body);
+
+                ev.Status = "Processed";
+                ev.ProcessedAt = DateTime.UtcNow;
+                _logger.LogInformation("Published outbox event {EventCode} ({EventType}) to RabbitMQ exchange {Exchange} with routing key {RoutingKey}.",
+                    ev.EventCode, ev.EventType, rabbitOptions.Exchange, routingKey);
             }
             catch (Exception ex)
             {
@@ -134,32 +160,5 @@ public sealed class OutboxPublisherWorker : BackgroundService
 
             await dbContext.SaveChangesAsync(stoppingToken);
         }
-    }
-
-    private string GenerateSystemToken()
-    {
-        var jwtKey = _configuration["Jwt:SharedSecret"]
-            ?? _configuration["Jwt:Key"]
-            ?? "SuperSecretKeyForPharmacyBillingServiceThatIsAtLeast32BytesLong!";
-        var jwtIssuer = _configuration["Jwt:Issuer"] ?? "PharmacyBillingService";
-        var jwtAudience = _configuration["Jwt:Audience"] ?? "PharmacyBillingService";
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(jwtKey);
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(ClaimTypes.Name, "SystemWorker"),
-                new Claim(ClaimTypes.Role, "Admin")
-            }),
-            Expires = DateTime.UtcNow.AddMinutes(5),
-            Issuer = jwtIssuer,
-            Audience = jwtAudience,
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
     }
 }

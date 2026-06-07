@@ -3,6 +3,7 @@ using AppointmentService.Dtos.Appointments;
 using AppointmentService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AppointmentService.Controllers;
 
@@ -25,7 +26,10 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<AppointmentDto>>), StatusCodes.Status200OK)]
     public ActionResult<ApiResponse<IReadOnlyList<AppointmentDto>>> GetAll()
     {
-        var data = _appointmentService.GetAppointments();
+        var data = User.IsInRole("Patient") && TryGetCurrentPatientId(out var patientId)
+            ? _appointmentService.GetAppointmentsByPatient(patientId)
+            : _appointmentService.GetAppointments();
+
         return Ok(ApiResponse<IReadOnlyList<AppointmentDto>>.Ok(data, "Appointments retrieved successfully"));
     }
 
@@ -37,7 +41,21 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status404NotFound)]
     public ActionResult<ApiResponse<AppointmentDto>> GetById(int id)
     {
-        return ToActionResult(_appointmentService.GetAppointmentById(id));
+        var result = _appointmentService.GetAppointmentById(id);
+        if (User.IsInRole("Patient"))
+        {
+            if (!TryGetCurrentPatientId(out var patientId))
+            {
+                return Forbid();
+            }
+
+            if (result.Success && result.Data is not null && result.Data.PatientId != patientId)
+            {
+                return Forbid();
+            }
+        }
+
+        return ToActionResult(result);
     }
 
     /// <summary>
@@ -47,6 +65,17 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<AppointmentDto>>), StatusCodes.Status200OK)]
     public ActionResult<ApiResponse<IReadOnlyList<AppointmentDto>>> GetByPatient(int patientId)
     {
+        if (User.IsInRole("Patient"))
+        {
+            if (!TryGetCurrentPatientId(out var tokenPatientId))
+            {
+                return Forbid();
+            }
+
+            // Patient routes are token-scoped: ignore stale/wrong ids from the client.
+            patientId = tokenPatientId;
+        }
+
         var data = _appointmentService.GetAppointmentsByPatient(patientId);
         return Ok(ApiResponse<IReadOnlyList<AppointmentDto>>.Ok(data, "Patient appointments retrieved successfully"));
     }
@@ -81,6 +110,26 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status400BadRequest)]
     public ActionResult<ApiResponse<AppointmentDto>> Create(CreateAppointmentRequest request)
     {
+        if (User.IsInRole("Patient"))
+        {
+            var patientIdClaim = User.FindFirst("PatientId")?.Value;
+            if (string.IsNullOrWhiteSpace(patientIdClaim) || !int.TryParse(patientIdClaim, out var patientId))
+            {
+                return BadRequest(ApiResponse<AppointmentDto>.Fail("Tài khoản bệnh nhân chưa được gắn hồ sơ BN. Vui lòng đăng nhập lại hoặc liên hệ lễ tân."));
+            }
+
+            request = new CreateAppointmentRequest
+            {
+                PatientId = patientId,
+                PatientNameSnapshot = request.PatientNameSnapshot,
+                PatientPhoneSnapshot = request.PatientPhoneSnapshot,
+                DoctorId = request.DoctorId,
+                AppointmentDate = request.AppointmentDate,
+                SlotTime = request.SlotTime,
+                Reason = request.Reason
+            };
+        }
+
         var result = _appointmentService.CreateAppointment(request);
         if (!result.Success || result.Data is null)
         {
@@ -113,6 +162,11 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status404NotFound)]
     public ActionResult<ApiResponse<AppointmentDto>> Start(int id)
     {
+        if (!CanDoctorAccessAppointment(id))
+        {
+            return Forbid();
+        }
+
         return ToActionResult(_appointmentService.StartAppointment(id));
     }
 
@@ -122,9 +176,9 @@ public sealed class AppointmentsController : ControllerBase
     [HttpPut("{id:int}/cancel")]
     [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<AppointmentDto>), StatusCodes.Status404NotFound)]
-    public ActionResult<ApiResponse<AppointmentDto>> Cancel(int id)
+    public ActionResult<ApiResponse<AppointmentDto>> Cancel(int id, [FromQuery] string? reason)
     {
-        return ToActionResult(_appointmentService.CancelAppointment(id));
+        return ToActionResult(_appointmentService.CancelAppointment(id, reason));
     }
 
     /// <summary>
@@ -164,5 +218,52 @@ public sealed class AppointmentsController : ControllerBase
             ServiceErrorType.NotFound => NotFound(response),
             _ => BadRequest(response)
         };
+    }
+
+    private bool TryGetCurrentPatientId(out int patientId)
+    {
+        var patientIdClaim = User.FindFirst("PatientId")?.Value;
+        return int.TryParse(patientIdClaim, out patientId) && patientId > 0;
+    }
+
+    private bool CanDoctorAccessAppointment(int appointmentId)
+    {
+        if (!User.IsInRole("Doctor"))
+        {
+            return true;
+        }
+
+        var appointmentResult = _appointmentService.GetAppointmentById(appointmentId);
+        return appointmentResult.Success &&
+               appointmentResult.Data is not null &&
+               TryGetCurrentDoctorId(out var doctorId) &&
+               appointmentResult.Data.DoctorId == doctorId;
+    }
+
+    private bool TryGetCurrentDoctorId(out int doctorId)
+    {
+        doctorId = 0;
+        var doctorIdClaim = User.FindFirst("DoctorId")?.Value;
+        if (int.TryParse(doctorIdClaim, out doctorId) && doctorId > 0)
+        {
+            return true;
+        }
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value
+            ?? User.FindFirst("UserId")?.Value;
+        if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
+        {
+            return false;
+        }
+
+        var doctorResult = _appointmentService.GetDoctorByUserId(userId);
+        if (!doctorResult.Success || doctorResult.Data is null)
+        {
+            return false;
+        }
+
+        doctorId = doctorResult.Data.DoctorId;
+        return true;
     }
 }

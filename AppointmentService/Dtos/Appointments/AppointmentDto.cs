@@ -30,7 +30,15 @@ public sealed class AppointmentDto
 
     public int? QueueNumber { get; init; }
 
+    public string? CancelReason { get; init; }
+
     public DateTime CreatedAt { get; init; }
 
     public DateTime? UpdatedAt { get; init; }
+
+    public DateTime? CheckedInAt { get; init; }
+
+    public DateTime? StartedAt { get; init; }
+
+    public DateTime? CompletedAt { get; init; }
 }

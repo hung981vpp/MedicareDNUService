@@ -33,6 +33,16 @@ namespace AppointmentService.Migrations
                     b.Property<DateOnly>("AppointmentDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("CheckedInAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -65,6 +75,9 @@ namespace AppointmentService.Migrations
                     b.Property<TimeOnly>("SlotTime")
                         .HasColumnType("time without time zone");
 
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -77,7 +90,7 @@ namespace AppointmentService.Migrations
 
                     b.HasIndex("DoctorId", "AppointmentDate", "SlotTime")
                         .IsUnique()
-                        .HasFilter("\"Status\" <> 'Cancelled'");
+                        .HasFilter("\"Status\" NOT IN ('Cancelled', 'Expired', 'NoShow')");
 
                     b.ToTable("Appointments", (string)null);
 
@@ -408,9 +421,7 @@ namespace AppointmentService.Migrations
                     b.HasIndex("AppointmentId")
                         .IsUnique();
 
-                    b.HasIndex("DoctorId");
-
-                    b.HasIndex("QueueDate", "QueueNumber")
+                    b.HasIndex("DoctorId", "QueueDate", "QueueNumber")
                         .IsUnique();
 
                     b.ToTable("WaitingQueues", (string)null);

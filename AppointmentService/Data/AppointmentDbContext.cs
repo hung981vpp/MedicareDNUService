@@ -87,6 +87,7 @@ public sealed class AppointmentDbContext : DbContext
             entity.Property(x => x.PatientNameSnapshot).HasMaxLength(120).IsRequired();
             entity.Property(x => x.PatientPhoneSnapshot).HasMaxLength(20).IsRequired();
             entity.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.CancelReason).HasMaxLength(500);
             entity.Property(x => x.Status)
                 .HasConversion<string>()
                 .HasMaxLength(20)
@@ -94,7 +95,7 @@ public sealed class AppointmentDbContext : DbContext
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasIndex(x => new { x.DoctorId, x.AppointmentDate, x.SlotTime })
                 .IsUnique()
-                .HasFilter("\"Status\" <> 'Cancelled'");
+                .HasFilter("\"Status\" NOT IN ('Cancelled', 'Expired', 'NoShow')");
             entity.HasOne<Doctor>()
                 .WithMany()
                 .HasForeignKey(x => x.DoctorId)
@@ -111,7 +112,7 @@ public sealed class AppointmentDbContext : DbContext
                 .IsRequired();
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasIndex(x => x.AppointmentId).IsUnique();
-            entity.HasIndex(x => new { x.QueueDate, x.QueueNumber }).IsUnique();
+            entity.HasIndex(x => new { x.DoctorId, x.QueueDate, x.QueueNumber }).IsUnique();
             entity.HasOne<Appointment>()
                 .WithMany()
                 .HasForeignKey(x => x.AppointmentId)

@@ -68,6 +68,18 @@ public sealed class DoctorsController : ControllerBase
     }
 
     /// <summary>
+    /// Appointment Service API: get one doctor by auth user id.
+    /// </summary>
+    [HttpGet("by-user/{userId:int}")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<DoctorDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DoctorDto>), StatusCodes.Status404NotFound)]
+    public ActionResult<ApiResponse<DoctorDto>> GetDoctorByUserId(int userId)
+    {
+        return ToActionResult(_appointmentService.GetDoctorByUserId(userId));
+    }
+
+    /// <summary>
     /// Appointment Service API: create a doctor owned by Appointment Service.
     /// </summary>
     [HttpPost]

@@ -24,7 +24,15 @@ public sealed class Appointment
 
     public int? QueueNumber { get; set; }
 
+    public string? CancelReason { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+
+    public DateTime? CheckedInAt { get; set; }
+
+    public DateTime? StartedAt { get; set; }
+
+    public DateTime? CompletedAt { get; set; }
 }
