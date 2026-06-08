@@ -34,24 +34,28 @@ namespace PharmacyBillingService.Services
         {
             var query = _context.Medicines.AsQueryable();
 
-            if (!string.IsNullOrEmpty(searchName))
+            if (!string.IsNullOrWhiteSpace(searchName))
             {
-                query = query.Where(m => m.MedicineName.Contains(searchName));
+                var normalizedName = searchName.Trim().ToLower();
+                query = query.Where(m => m.MedicineName.ToLower().StartsWith(normalizedName));
             }
 
-            if (!string.IsNullOrEmpty(searchActiveIngredient))
+            if (!string.IsNullOrWhiteSpace(searchActiveIngredient))
             {
-                query = query.Where(m => m.ActiveIngredient != null && m.ActiveIngredient.Contains(searchActiveIngredient));
+                var normalizedActiveIngredient = searchActiveIngredient.Trim().ToLower();
+                query = query.Where(m => m.ActiveIngredient != null && m.ActiveIngredient.ToLower().Contains(normalizedActiveIngredient));
             }
 
-            if (!string.IsNullOrEmpty(medicineType))
+            if (!string.IsNullOrWhiteSpace(medicineType))
             {
-                query = query.Where(m => m.MedicineType == medicineType);
+                var normalizedMedicineType = medicineType.Trim().ToLower();
+                query = query.Where(m => m.MedicineType.ToLower() == normalizedMedicineType);
             }
 
-            if (!string.IsNullOrEmpty(status))
+            if (!string.IsNullOrWhiteSpace(status))
             {
-                query = query.Where(m => m.Status == status);
+                var normalizedStatus = status.Trim().ToLower();
+                query = query.Where(m => m.Status.ToLower() == normalizedStatus);
             }
 
             var medicines = await query
