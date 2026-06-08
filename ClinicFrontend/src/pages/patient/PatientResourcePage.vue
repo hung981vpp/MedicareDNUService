@@ -340,6 +340,7 @@ const query = ref('')
 const rows = ref<Row[]>([])
 const actingId = ref<string | number | null>(null)
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 const currentPatient = ref<Patient | null>(null)
 const history = ref<PatientMedicalHistory | null>(null)
 const detailOpen = ref(false)
@@ -363,8 +364,13 @@ const profileForm = reactive({
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
 const config = computed(() => configs[resource.value])
-const patientId = computed(() => String(currentPatient.value?.id || currentPatient.value?.patientId || authStore.user?.patientId || ''))
+const patientId = computed(() => String(currentPatient.value?.id || currentPatient.value?.patientId || ''))
 const displayPatientCode = computed(() => patientDisplayCode(currentPatient.value) || formatPatientCode(patientId.value) || 'Chưa liên kết')
+
+watch(() => toast.show, (visible) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  if (visible) toastTimer = setTimeout(() => { toast.show = false }, 3000)
+})
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
   appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám, số thứ tự và trạng thái xác nhận.', 'Tìm bác sĩ, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['doctorName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã'], ['doctorName', 'Bác sĩ', false, true], ['dateTime', 'Ngày giờ'], ['queueNumber', 'STT'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
@@ -479,8 +485,8 @@ async function loadData() {
     syncProfileForm()
     if (resource.value === 'profile') return
     if (resource.value === 'appointments') {
-      const keys = numericKeys()
-      rows.value = uniqueRows((await Promise.all(keys.map((key) => appointmentApi.getAppointmentsByPatient(key).catch(() => [] as Appointment[])))).flat().map(mapAppointment))
+      const id = patientId.value
+      rows.value = id ? uniqueRows((await appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[])).map(mapAppointment)) : []
       note.value = rows.value.length ? 'Đã tải lịch hẹn từ N1.' : 'Database chưa có lịch hẹn cho bệnh nhân này.'
       showLoadToast('Lịch hẹn', rows.value.length, 'Nếu chưa có lịch, sang Đặt lịch khám để tạo lịch mới.')
     }
@@ -491,12 +497,15 @@ async function loadData() {
       showLoadToast('Hồ sơ bệnh án', rows.value.length, 'Bệnh án sẽ xuất hiện sau khi bác sĩ hoàn tất lượt khám.')
     }
     if (resource.value === 'prescriptions') {
-      const keys = patientKeys()
-      const [n2Prescriptions, n3PrescriptionsResults] = await Promise.all([
+      const [n2Prescriptions, n3Prescriptions] = await Promise.all([
         getHistory().then((data) => data.prescriptions || []),
-        Promise.all(keys.map(key => billingApi.getPrescriptions(key).catch(() => [] as Prescription[])))
+        patientId.value
+          ? billingApi.getPrescriptions(patientId.value).catch((err) => {
+          if ((err as any)?.response?.status === 404) return [] as Prescription[]
+          throw err
+        })
+          : Promise.resolve([] as Prescription[]),
       ])
-      const n3Prescriptions = n3PrescriptionsResults.flat()
       const combined = [...n2Prescriptions, ...n3Prescriptions]
       const seen = new Set<string>()
       const uniquePrescriptions = combined.filter((p) => {
@@ -510,8 +519,9 @@ async function loadData() {
       showLoadToast('Đơn thuốc', rows.value.length, 'Đơn thuốc sẽ xuất hiện sau khi bác sĩ chốt đơn qua N2.')
     }
     if (resource.value === 'bills') {
-      const keys = patientKeys()
-      rows.value = uniqueRows((await Promise.all(keys.map((key) => billingApi.getInvoices(key).catch(() => [] as Invoice[])))).flat().map(mapInvoice))
+      rows.value = patientId.value
+        ? uniqueRows((await billingApi.getInvoices(patientId.value)).map(mapInvoice))
+        : []
       note.value = rows.value.length ? 'Đã tải viện phí từ N3.' : 'Database chưa có viện phí cho bệnh nhân này.'
       showLoadToast('Viện phí', rows.value.length, 'Nếu đã khám xong, liên hệ quầy thu ngân hoặc kiểm tra lại sau.')
     }
@@ -526,28 +536,8 @@ async function loadData() {
 
 async function resolvePatient() {
   if (currentPatient.value) return currentPatient.value
-  const user = authStore.user
-  const directId = String(user?.patientId || '')
-  if (directId) {
-    currentPatient.value = await medicalRecordApi.getPatient(directId).catch(() => null as any)
-    if (currentPatient.value) {
-      await syncPatientFromUser()
-      return currentPatient.value
-    }
-  }
-  const phones = new Set([user?.phoneNumber].map(normalizeText).filter(Boolean))
-  const names = new Set([user?.fullName].map(normalizeText).filter(Boolean))
-  const patients = await medicalRecordApi.getPatients({ pageSize: 100 }).catch(() => [] as Patient[])
-  const match = patients.find((patient) => {
-    const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
-    const patientName = normalizeText(patient.fullName)
-    return patientPhones.some((phone) => phones.has(phone)) || Boolean(patientName && names.has(patientName))
-  }) || null
-  currentPatient.value = match
-    ? await medicalRecordApi.getPatient(match.id || match.patientId).catch(() => match)
-    : null
+  currentPatient.value = await medicalRecordApi.getCurrentPatient()
   if (currentPatient.value && authStore.user) authStore.user.patientId = String(currentPatient.value.id || currentPatient.value.patientId || '')
-  await syncPatientFromUser()
   return currentPatient.value
 }
 
@@ -570,32 +560,6 @@ function syncProfileForm() {
   profileForm.bloodType = currentPatient.value?.bloodType || ''
   profileForm.allergyNote = currentPatient.value?.allergyNote || currentPatient.value?.allergies || ''
   profileForm.medicalHistory = currentPatient.value?.medicalHistory || ''
-}
-
-async function syncPatientFromUser() {
-  const patient = currentPatient.value
-  const user = authStore.user
-  const id = toNumber(patient?.id, patient?.patientId, user?.patientId)
-  if (!patient || !user || !id) return
-
-  const authFullName = user.fullName?.trim()
-  const authEmail = user.email?.trim()
-  const authPhoneNumber = user.phoneNumber?.trim()
-  const nextFullName = patient.fullName || authFullName
-  const nextEmail = patient.email || authEmail
-  const nextPhoneNumber = patient.phoneNumber || patient.phone || authPhoneNumber
-  const shouldSync =
-    Boolean(!patient.fullName && authFullName) ||
-    Boolean(!patient.email && authEmail) ||
-    Boolean(!patient.phoneNumber && !patient.phone && authPhoneNumber)
-
-  if (!shouldSync) return
-
-  currentPatient.value = await medicalRecordApi.updatePatient(id, patientPayload({
-    fullName: nextFullName || patient.fullName,
-    email: nextEmail || patient.email,
-    phoneNumber: nextPhoneNumber || patient.phoneNumber,
-  }))
 }
 
 async function saveProfile() {
@@ -633,16 +597,8 @@ async function saveProfile() {
       allergyNote: profileForm.allergyNote.trim() || null,
       medicalHistory: profileForm.medicalHistory.trim() || null,
     })
-    if (id) {
-      currentPatient.value = await medicalRecordApi.updatePatient(id, payload)
-    } else {
-      const savedPatient = await medicalRecordApi.createPatient(payload)
-      const savedId = toNumber(savedPatient.id, savedPatient.patientId)
-      currentPatient.value = savedId
-        ? await medicalRecordApi.getPatient(savedId).catch(() => savedPatient)
-        : savedPatient
-      if (authStore.user) authStore.user.patientId = currentPatient.value.id || currentPatient.value.patientId
-    }
+    if (!id) throw new Error('Token chưa có PatientId hợp lệ. Vui lòng đăng xuất rồi đăng nhập lại.')
+    currentPatient.value = await medicalRecordApi.updatePatient(id, payload)
     history.value = null
     syncProfileForm()
     showToast('Đã lưu hồ sơ', 'Thông tin hành chính và y tế đã được cập nhật vào cơ sở dữ liệu.', 'success')
@@ -673,29 +629,11 @@ function patientPayload(overrides: Partial<Patient>): Partial<Patient> {
 
 async function getHistory() {
   if (history.value) return history.value
-  const id = patientId.value
-  if (!id) return { visits: [], medicalRecords: [], prescriptions: [] } as PatientMedicalHistory
-  history.value = await medicalRecordApi.getPatientHistory(id).catch(() => ({ visits: [], medicalRecords: [], prescriptions: [] }) as PatientMedicalHistory)
+  history.value = await medicalRecordApi.getCurrentPatientClinicalTimeline().catch((error) => {
+    if ((error as any)?.response?.status === 404) return { visits: [], medicalRecords: [], prescriptions: [] } as PatientMedicalHistory
+    throw error
+  })
   return history.value
-}
-
-function patientKeys() {
-  const keys = new Set<string>()
-  addKey(keys, authStore.user?.patientId)
-  addKey(keys, currentPatient.value?.patientId)
-  addKey(keys, currentPatient.value?.patientIdCode)
-  addKey(keys, currentPatient.value?.id)
-  addKey(keys, currentPatient.value?.patientCode)
-  return Array.from(keys)
-}
-
-function numericKeys() {
-  return patientKeys().filter((key) => /^\d+$/.test(key))
-}
-
-function addKey(keys: Set<string>, value: unknown) {
-  const textValue = String(value ?? '').trim()
-  if (textValue && textValue !== '0') keys.add(textValue)
 }
 
 function formatPatientCode(value: unknown) {
@@ -915,8 +853,12 @@ function statusClass(status?: string) {
 
 function statusLabel(status?: string) {
   const valueText = String(status || '').toLowerCase()
+  if (valueText.includes('checked')) return 'Đã check-in'
+  if (valueText.includes('progress')) return 'Đang khám'
   if (valueText.includes('confirmed')) return 'Đã xác nhận'
   if (valueText.includes('completed') || valueText.includes('done')) return 'Hoàn tất'
+  if (valueText.includes('noshow')) return 'Không đến khám'
+  if (valueText.includes('expired')) return 'Đã quá hạn'
   if (valueText.includes('pending') || valueText.includes('waiting')) return 'Đang chờ'
   if (valueText.includes('unpaid')) return 'Chưa thanh toán'
   if (valueText.includes('paid')) return 'Đã thanh toán'
