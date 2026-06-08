@@ -16,3 +16,19 @@
 .bash_history
 .viminfo
 .wget-hsts
+
+# Clinic Frontend (has its own repo)
+ClinicFrontend/
+
+# DB backups & logs
+db-backups/
+docker-log-backup.txt
+
+# Home environment files
+.bashrc
+.cline/
+.gitconfig
+.profile
+
+# PDFs
+*.pdf

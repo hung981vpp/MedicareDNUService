@@ -19,6 +19,26 @@ public sealed class ClinicalOrderCreateRequest
     public string? Reason { get; init; }
 }
 
+public sealed class ClinicalOrderResultRequest
+{
+    public string? ResultText { get; init; }
+
+    [StringLength(100)]
+    public string? ResultValue { get; init; }
+
+    [StringLength(50)]
+    public string? ResultUnit { get; init; }
+
+    [StringLength(500)]
+    public string? ResultFileUrl { get; init; }
+
+    [StringLength(500)]
+    public string? Conclusion { get; init; }
+
+    [StringLength(100)]
+    public string? ResultedBy { get; init; }
+}
+
 public sealed record ClinicalOrderDto(
     int Id,
     string? ClinicalOrderCode,
@@ -29,4 +49,11 @@ public sealed record ClinicalOrderDto(
     string OrderName,
     string? Reason,
     string Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? ResultText,
+    string? ResultValue,
+    string? ResultUnit,
+    string? ResultFileUrl,
+    string? Conclusion,
+    DateTime? ResultedAt,
+    string? ResultedBy);

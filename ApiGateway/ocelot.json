@@ -17,6 +17,22 @@
       "Priority": 100
     },
     {
+      "UpstreamPathTemplate": "/pharmacy/api/auth/check-duplicate",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/auth/check-duplicate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/pharmacy/api/payments/sepay/webhook",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/payments/sepay/webhook",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
       "UpstreamPathTemplate": "/appointment/api/specialties/{everything}",
       "UpstreamHttpMethod": [ "GET" ],
       "DownstreamPathTemplate": "/api/specialties/{everything}",

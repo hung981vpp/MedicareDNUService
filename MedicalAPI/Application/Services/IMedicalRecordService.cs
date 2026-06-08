@@ -7,9 +7,16 @@ public interface IMedicalRecordService
 {
     Result<PagedList<PatientSummaryDto>> SearchPatients(string? keyword, int pageNumber, int pageSize);
     Result<PatientDetailDto> GetPatient(int id);
+    Result<PatientDetailDto> GetPatientByKey(string patientKey, int? currentUserId, int? currentPatientId, string? currentEmail, string? currentFullName);
     Result<PatientSummaryDto> CreatePatient(PatientCreateRequest request);
     Result<PatientDetailDto> UpdatePatient(int id, PatientUpdateRequest request);
+    Result<PatientDetailDto> UpdateCurrentPatient(PatientUpdateRequest request);
     Result<PatientHistoryDto> GetPatientHistory(int id);
+    Result<PatientHistoryDto> GetPatientHistoryByKey(string patientKey, int? currentUserId, int? currentPatientId, string? currentEmail, string? currentFullName);
+    Result<PatientDetailDto> GetCurrentPatient();
+    Result<PatientHistoryDto> GetCurrentPatientHistory();
+    Result<PatientClinicalTimelineDto> GetCurrentPatientClinicalTimeline();
+    Result<PatientClinicalTimelineDto> GetPatientClinicalTimeline(int patientId);
 
     Result<IReadOnlyList<VisitDetailDto>> GetTodayVisits(int? doctorId);
     Result<VisitDetailDto> GetVisit(int id);
@@ -25,6 +32,8 @@ public interface IMedicalRecordService
     Result<MedicalRecordDetailDto> GetMedicalRecordByVisit(int visitId);
     Result<MedicalRecordDetailDto> UpdateMedicalRecord(int id, MedicalRecordUpdateRequest request);
     Result<MedicalRecordDetailDto> CompleteMedicalRecord(int id);
+    Result<CompleteMedicalRecordDto> GetCompleteMedicalRecord(int id);
+    Result<string> ExportMedicalRecordHtml(int id);
 
     Result<PrescriptionDetailDto> CreatePrescription(PrescriptionCreateRequest request);
     Result<PrescriptionDetailDto> GetPrescription(int id);
@@ -37,9 +46,13 @@ public interface IMedicalRecordService
 
     Result<ClinicalOrderDto> CreateClinicalOrder(ClinicalOrderCreateRequest request);
     Result<IReadOnlyList<ClinicalOrderDto>> GetClinicalOrders(int? medicalRecordId, int? patientId);
+    Result<ClinicalOrderDto> UpdateClinicalOrderResult(int id, ClinicalOrderResultRequest request);
 
     Result<EventResultDto> HandleAppointmentConfirmed(AppointmentConfirmedEventRequest request);
     Result<EventResultDto> HandlePatientCheckedIn(PatientCheckedInEventRequest request);
-    Result<IReadOnlyList<OutboxEventDto>> GetOutboxEvents(string? status);
+    Result<IReadOnlyList<InboxEventDto>> GetInboxEvents(string? status, string? eventType);
+    Result<IReadOnlyList<OutboxEventDto>> GetOutboxEvents(string? status, string? eventType);
     Result<OutboxEventDto> MarkOutboxPublished(int id);
+    Result<OutboxEventDto> RetryOutboxEvent(int id);
+    Result<OutboxEventDto> FailOutboxEvent(int id);
 }

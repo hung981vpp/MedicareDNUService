@@ -13,7 +13,9 @@ public static class MedicalStatuses
     public const string SentToPharmacy = "Đã gửi nhà thuốc";
     public const string Dispensed = "Đã cấp phát";
     public const string Ordered = "Đã chỉ định";
+    public const string OrderInProgress = "Đang xử lý";
     public const string Processed = "Đã xử lý";
     public const string PendingPublish = "Đang chờ gửi";
     public const string Published = "Đã gửi";
+    public const string Failed = "Thất bại";
 }

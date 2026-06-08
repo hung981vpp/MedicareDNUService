@@ -14,4 +14,11 @@ public sealed class ClinicalOrder
     public string? Reason { get; set; }
     public string Status { get; set; } = MedicalStatuses.Ordered;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? ResultText { get; set; }
+    public string? ResultValue { get; set; }
+    public string? ResultUnit { get; set; }
+    public string? ResultFileUrl { get; set; }
+    public string? Conclusion { get; set; }
+    public DateTime? ResultedAt { get; set; }
+    public string? ResultedBy { get; set; }
 }

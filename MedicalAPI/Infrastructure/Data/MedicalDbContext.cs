@@ -139,6 +139,11 @@ public sealed class MedicalDbContext(DbContextOptions<MedicalDbContext> options)
         entity.Property(o => o.OrderName).HasMaxLength(200);
         entity.Property(o => o.Reason).HasMaxLength(500);
         entity.Property(o => o.Status).HasMaxLength(30);
+        entity.Property(o => o.ResultValue).HasMaxLength(100);
+        entity.Property(o => o.ResultUnit).HasMaxLength(50);
+        entity.Property(o => o.ResultFileUrl).HasMaxLength(500);
+        entity.Property(o => o.Conclusion).HasMaxLength(500);
+        entity.Property(o => o.ResultedBy).HasMaxLength(100);
         entity.HasOne<MedicalRecord>()
             .WithMany()
             .HasForeignKey(o => o.MedicalRecordId)
@@ -149,7 +154,7 @@ public sealed class MedicalDbContext(DbContextOptions<MedicalDbContext> options)
     {
         var entity = modelBuilder.Entity<InboxEvent>();
         entity.HasIndex(e => new { e.SourceService, e.EventCode }).IsUnique();
-        entity.Property(e => e.EventCode).HasMaxLength(30);
+        entity.Property(e => e.EventCode).HasMaxLength(100);
         entity.Property(e => e.SourceService).HasMaxLength(100);
         entity.Property(e => e.EventType).HasMaxLength(100);
         entity.Property(e => e.Status).HasMaxLength(30);
@@ -160,7 +165,7 @@ public sealed class MedicalDbContext(DbContextOptions<MedicalDbContext> options)
         var entity = modelBuilder.Entity<OutboxEvent>();
         entity.HasIndex(e => e.EventCode).IsUnique();
         entity.HasIndex(e => e.Status);
-        entity.Property(e => e.EventCode).HasMaxLength(30);
+        entity.Property(e => e.EventCode).HasMaxLength(100);
         entity.Property(e => e.EventType).HasMaxLength(100);
         entity.Property(e => e.AggregateType).HasMaxLength(100);
         entity.Property(e => e.Status).HasMaxLength(30);

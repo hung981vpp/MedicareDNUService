@@ -131,6 +131,7 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddScoped<IMedicalRecordService, MedicalRecordService>();
 builder.Services.AddHttpClient();
+builder.Services.AddHostedService<AppointmentEventsConsumerWorker>();
 builder.Services.AddHostedService<MedicalOutboxPublisherWorker>();
 
 var app = builder.Build();
@@ -176,10 +177,17 @@ app.MapGet("/api/v1/medical", () => Results.Ok(new
     {
         "/health",
         "/api/v1/medical/patients",
+        "/api/v1/medical/patients/me",
+        "/api/v1/medical/patients/me/history",
+        "/api/v1/medical/patients/me/clinical-timeline",
         "/api/v1/medical/visits/today",
         "/api/v1/medical/records",
+        "/api/v1/medical/records/{id}/complete",
+        "/api/v1/medical/records/{id}/export/html",
         "/api/v1/medical/prescriptions",
         "/api/v1/medical/clinical-orders",
+        "/api/v1/medical/clinical-orders/{id}/result",
+        "/api/v1/medical/events/inbox",
         "/api/v1/medical/events/outbox"
     }
 }));

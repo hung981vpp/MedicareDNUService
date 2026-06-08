@@ -40,6 +40,12 @@ public sealed class VisitVitalsRequest
     [Range(1, 250, ErrorMessage = "Nhịp tim phải lớn hơn 0")]
     public int? HeartRate { get; init; }
 
+    [Range(1, 100, ErrorMessage = "Nhịp thở phải lớn hơn 0")]
+    public int? RespiratoryRate { get; init; }
+
+    [Range(1, 100, ErrorMessage = "SpO2 phải nằm trong khoảng 1 đến 100")]
+    public int? Spo2 { get; init; }
+
     [Range(1, 500, ErrorMessage = "Cân nặng phải lớn hơn 0")]
     public decimal? Weight { get; init; }
 

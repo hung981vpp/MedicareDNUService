@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
     mem_limit: 96m
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
@@ -21,6 +28,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     mem_limit: 128m
+    logging: *default-logging
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -47,6 +55,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     mem_limit: 256m
+    logging: *default-logging
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
@@ -58,9 +67,17 @@ services:
       ConnectionStrings__AppointmentDatabase: Host=appointment-postgres;Port=5432;Database=AppointmentServiceDb;Username=postgres;Password=123456;Trust Server Certificate=true
       ServiceUrls__MedicalRecordService: http://medical-api:8080
       ServiceUrls__PharmacyBillingService: http://pharmacy-billing-service:8080
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: guest
+      RabbitMq__Password: guest
+      RabbitMq__Exchange: clinic.events
+      RabbitMq__AppointmentQueue: n2.appointment-events
     depends_on:
       appointment-postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - clinic-network
 
@@ -68,6 +85,7 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     mem_limit: 160m
+    logging: *default-logging
     command:
       - postgres
       - -c
@@ -100,6 +118,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     mem_limit: 256m
+    logging: *default-logging
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -110,9 +129,18 @@ services:
       Jwt__Audience: PharmacyBillingService
       ServiceUrls__PharmacyBillingService: http://pharmacy-billing-service:8080
       ConnectionStrings__MedicalDb: Host=medical-postgres;Port=5432;Database=MedicalDB;Username=postgres;Password=123456
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: guest
+      RabbitMq__Password: guest
+      RabbitMq__Exchange: clinic.events
+      RabbitMq__AppointmentQueue: n2.appointment-events
+      RabbitMq__PrescriptionQueue: n3.prescription-events
     depends_on:
       medical-postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - clinic-network
 
@@ -120,6 +148,7 @@ services:
     image: postgres:16
     restart: unless-stopped
     mem_limit: 192m
+    logging: *default-logging
     command:
       - postgres
       - -c
@@ -148,10 +177,11 @@ services:
 
   pharmacy-billing-service:
     build:
-      context: ./PharmacyBillingService
+      context: ./PharmacyBillingService/PharmacyBillingService
       dockerfile: Dockerfile
     restart: unless-stopped
     mem_limit: 256m
+    logging: *default-logging
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -161,9 +191,18 @@ services:
       Jwt__Issuer: PharmacyBillingService
       Jwt__Audience: PharmacyBillingService
       ConnectionStrings__DefaultConnection: Host=pharmacy-postgres;Port=5432;Database=PharmacyDB;Username=postgres;Password=123456;Include Error Detail=true
+      ServiceUrls__MedicalRecordService: http://medical-api:8080
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: guest
+      RabbitMq__Password: guest
+      RabbitMq__Exchange: clinic.events
+      RabbitMq__PrescriptionQueue: n3.prescription-events
     depends_on:
       pharmacy-postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - clinic-network
 
@@ -171,6 +210,7 @@ services:
     image: postgres:15-alpine
     restart: unless-stopped
     mem_limit: 160m
+    logging: *default-logging
     command:
       - postgres
       - -c
@@ -188,7 +228,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "123456"
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pharmacy_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -203,13 +243,14 @@ services:
     image: rabbitmq:3.12-management
     restart: unless-stopped
     mem_limit: 192m
+    logging: *default-logging
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none"
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -221,6 +262,7 @@ services:
       - tools
     restart: "no"
     mem_limit: 192m
+    logging: *default-logging
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@clinic.com
       PGADMIN_DEFAULT_PASSWORD: "123456"

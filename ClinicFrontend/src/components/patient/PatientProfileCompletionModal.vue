@@ -179,13 +179,10 @@ async function saveProfile() {
     }
 
     const id = toPositiveNumber(currentPatient.value?.id, currentPatient.value?.patientId, authStore.user?.patientId)
-    const savedPatient = id
-      ? await medicalRecordApi.updatePatient(id, payload)
-      : await medicalRecordApi.createPatient(payload)
-    const savedId = toPositiveNumber(savedPatient.id, savedPatient.patientId)
-    const patient = savedId
-      ? await medicalRecordApi.getPatient(savedId).catch(() => savedPatient)
-      : savedPatient
+    if (!id) {
+      throw new Error('Token chưa có PatientId hợp lệ. Vui lòng đăng xuất rồi đăng nhập lại.')
+    }
+    const patient = await medicalRecordApi.updatePatient(id, payload)
 
     currentPatient.value = patient
     if (authStore.user) {
@@ -208,24 +205,13 @@ async function saveProfile() {
 }
 
 async function resolvePatient() {
-  const user = authStore.user
-  const directId = String(user?.patientId || '').trim()
-  if (directId) {
-    const patient = await medicalRecordApi.getPatient(directId).catch(() => null)
-    if (patient) return patient
-  }
-
-  const patients = await medicalRecordApi.getPatients({ keyword: user?.phoneNumber || user?.email || user?.fullName, pageSize: 100 }).catch(() => [] as Patient[])
-  const phone = normalize(user?.phoneNumber)
-  const email = normalize(user?.email)
-  const name = normalize(user?.fullName)
-  const match = patients.find((patient) => {
-    return Boolean(phone && normalize(patient.phoneNumber || patient.phone) === phone) ||
-      Boolean(email && normalize(patient.email) === email) ||
-      Boolean(name && normalize(patient.fullName) === name)
-  }) || null
-
-  return match ? medicalRecordApi.getPatient(match.id || match.patientId).catch(() => match) : null
+  return medicalRecordApi.getCurrentPatient().catch((apiError) => {
+    const status = (apiError as any)?.response?.status
+    if (status === 401 || status === 403) {
+      error.value = 'Không xác định được hồ sơ bệnh nhân của tài khoản hiện tại. Vui lòng đăng xuất rồi đăng nhập lại.'
+    }
+    return null
+  })
 }
 
 function fillForm(patient: Patient | null) {

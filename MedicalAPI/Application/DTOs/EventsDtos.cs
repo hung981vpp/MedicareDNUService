@@ -5,7 +5,7 @@ namespace MedicalAPI.Application.DTOs;
 public sealed class AppointmentConfirmedEventRequest
 {
     [Required(ErrorMessage = "EventCode không được để trống")]
-    [StringLength(30)]
+    [StringLength(100)]
     public string EventCode { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "EventType không được để trống")]
@@ -68,7 +68,7 @@ public sealed class AppointmentConfirmedData
 public sealed class PatientCheckedInEventRequest
 {
     [Required(ErrorMessage = "EventCode không được để trống")]
-    [StringLength(30)]
+    [StringLength(100)]
     public string EventCode { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "EventType không được để trống")]
@@ -115,4 +115,15 @@ public sealed record OutboxEventDto(
     string Status,
     DateTime OccurredAt,
     DateTime? PublishedAt,
-    int RetryCount);
+    int RetryCount,
+    string? ErrorMessage);
+
+public sealed record InboxEventDto(
+    int Id,
+    string EventCode,
+    string SourceService,
+    string EventType,
+    string Payload,
+    DateTime ProcessedAt,
+    string Status,
+    string? ErrorMessage);

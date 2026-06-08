@@ -1,12 +1,9 @@
 using System;
-using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Security.Claims;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MedicalAPI.Application.Messaging;
 using MedicalAPI.Domain.Constants;
 using MedicalAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
+using RabbitMQ.Client;
 
 namespace MedicalAPI.Application.Services;
 
@@ -23,18 +20,15 @@ public sealed class MedicalOutboxPublisherWorker : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MedicalOutboxPublisherWorker> _logger;
     private readonly IConfiguration _configuration;
-    private readonly IHttpClientFactory _httpClientFactory;
 
     public MedicalOutboxPublisherWorker(
         IServiceProvider serviceProvider,
         ILogger<MedicalOutboxPublisherWorker> logger,
-        IConfiguration configuration,
-        IHttpClientFactory httpClientFactory)
+        IConfiguration configuration)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _configuration = configuration;
-        _httpClientFactory = httpClientFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -76,21 +70,22 @@ public sealed class MedicalOutboxPublisherWorker : BackgroundService
 
         _logger.LogInformation("N2 Outbox found {Count} pending events to publish to N3.", pendingEvents.Count);
 
-        var pharmacyBaseUrl = _configuration["ServiceUrls:PharmacyBillingService"] ?? "http://pharmacy-billing-service:8080";
-        var systemToken = GenerateSystemToken();
-
-        using var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", systemToken);
+        var rabbitOptions = RabbitMqConnectionFactory.GetOptions(_configuration);
+        using var connection = RabbitMqConnectionFactory.CreateConnection(_configuration);
+        using var channel = connection.CreateModel();
+        channel.ExchangeDeclare(rabbitOptions.Exchange, ExchangeType.Topic, durable: true, autoDelete: false);
+        channel.QueueDeclare(rabbitOptions.PrescriptionQueue, durable: true, exclusive: false, autoDelete: false);
+        channel.QueueBind(rabbitOptions.PrescriptionQueue, rabbitOptions.Exchange, "prescription.created");
 
         foreach (var ev in pendingEvents)
         {
-            var targetEndpoint = ev.EventType switch
+            var routingKey = ev.EventType switch
             {
-                "prescription.created" => $"{pharmacyBaseUrl.TrimEnd('/')}/api/events/prescription-created",
+                "prescription.created" => "prescription.created",
                 _ => null
             };
 
-            if (targetEndpoint is null)
+            if (routingKey is null)
             {
                 _logger.LogWarning("Unsupported event type {EventType} for Outbox Event {Id}", ev.EventType, ev.Id);
                 ev.Status = "Thất bại"; // Mark as Failed in Vietnamese
@@ -101,22 +96,25 @@ public sealed class MedicalOutboxPublisherWorker : BackgroundService
 
             try
             {
-                var content = new StringContent(ev.Payload, Encoding.UTF8, "application/json");
-                var response = await client.PostAsync(targetEndpoint, content, stoppingToken);
+                var body = Encoding.UTF8.GetBytes(ev.Payload);
+                var properties = channel.CreateBasicProperties();
+                properties.Persistent = true;
+                properties.ContentType = "application/json";
+                properties.MessageId = ev.EventCode;
+                properties.Type = ev.EventType;
+                properties.Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
-                if (response.IsSuccessStatusCode)
-                {
-                    ev.Status = MedicalStatuses.Published;
-                    ev.PublishedAt = DateTime.UtcNow;
-                    _logger.LogInformation("Successfully published N2 event {EventCode} ({EventType}) to {Endpoint}", ev.EventCode, ev.EventType, targetEndpoint);
-                }
-                else
-                {
-                    var errorResponse = await response.Content.ReadAsStringAsync(stoppingToken);
-                    ev.RetryCount++;
-                    ev.ErrorMessage = $"HTTP {response.StatusCode}: {errorResponse}";
-                    _logger.LogWarning("Failed to publish event {EventCode} to N3. Status: {Status}. Retry: {Retry}", ev.EventCode, response.StatusCode, ev.RetryCount);
-                }
+                channel.BasicPublish(
+                    exchange: rabbitOptions.Exchange,
+                    routingKey: routingKey,
+                    mandatory: false,
+                    basicProperties: properties,
+                    body: body);
+
+                ev.Status = MedicalStatuses.Published;
+                ev.PublishedAt = DateTime.UtcNow;
+                _logger.LogInformation("Published N2 event {EventCode} ({EventType}) to RabbitMQ exchange {Exchange} with routing key {RoutingKey}.",
+                    ev.EventCode, ev.EventType, rabbitOptions.Exchange, routingKey);
             }
             catch (Exception ex)
             {
@@ -132,32 +130,5 @@ public sealed class MedicalOutboxPublisherWorker : BackgroundService
 
             await db.SaveChangesAsync(stoppingToken);
         }
-    }
-
-    private string GenerateSystemToken()
-    {
-        var jwtKey = _configuration["Jwt:SharedSecret"]
-            ?? _configuration["Jwt:Key"]
-            ?? "SuperSecretKeyForPharmacyBillingServiceThatIsAtLeast32BytesLong!";
-        var jwtIssuer = _configuration["Jwt:Issuer"] ?? "PharmacyBillingService";
-        var jwtAudience = _configuration["Jwt:Audience"] ?? "PharmacyBillingService";
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(jwtKey);
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(ClaimTypes.Name, "SystemWorker"),
-                new Claim(ClaimTypes.Role, "Admin")
-            }),
-            Expires = DateTime.UtcNow.AddMinutes(5),
-            Issuer = jwtIssuer,
-            Audience = jwtAudience,
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
     }
 }
