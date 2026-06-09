@@ -11,6 +11,7 @@ namespace PharmacyBillingService.Security
         public const string DoctorOrStaff = Doctor + "," + Admin + "," + Nurse + "," + Pharmacist;
         public const string AdminOrNurse = Admin + "," + Nurse;
         public const string AdminOrPharmacist = Admin + "," + Pharmacist;
+        public const string InventoryManagers = Admin + "," + Nurse + "," + Pharmacist;
         public const string Staff = Admin + "," + Nurse + "," + Pharmacist;
         public const string StaffOrPatient = Staff + "," + Patient;
     }

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PharmacyBillingService.Data;
 using PharmacyBillingService.Security;
 using PharmacyBillingService.Services;
@@ -16,18 +17,33 @@ namespace PharmacyBillingService.Controllers
     {
         private readonly IPrescriptionService _prescriptionService;
         private readonly PharmacyDbContext _context;
+        private readonly ILogger<PrescriptionsController> _logger;
 
-        public PrescriptionsController(IPrescriptionService prescriptionService, PharmacyDbContext context)
+        public PrescriptionsController(IPrescriptionService prescriptionService, PharmacyDbContext context, ILogger<PrescriptionsController> logger)
         {
             _prescriptionService = prescriptionService;
             _context = context;
+            _logger = logger;
         }
 
         [HttpGet]
         [Authorize(Roles = RoleConstants.Staff)]
         public async Task<IActionResult> GetAllPrescriptions([FromQuery] string? status)
         {
-            return Ok(await _prescriptionService.GetAllPrescriptionsAsync(status));
+            try
+            {
+                return Ok(await _prescriptionService.GetAllPrescriptionsAsync(status));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Business error while loading prescriptions.");
+                return BadRequest(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while loading prescriptions.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Khong tai duoc danh sach don thuoc.", Detail = ex.Message });
+            }
         }
 
         [HttpGet("{id}")]

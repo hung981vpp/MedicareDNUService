@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -141,6 +142,24 @@ if (app.Environment.IsDevelopment() || true) // Enable Swagger in all environmen
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Pharmacy & Billing Service API v1");
     });
 }
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(exception, "Unhandled request error.");
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            Message = "Da xay ra loi khong mong muon.",
+            Detail = exception?.Message
+        });
+    });
+});
 
 app.UseHttpsRedirection();
 

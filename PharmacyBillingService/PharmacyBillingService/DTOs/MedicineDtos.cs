@@ -9,11 +9,13 @@ namespace PharmacyBillingService.DTOs
         [MaxLength(150, ErrorMessage = "Tên thuốc tối đa 150 ký tự")]
         public string MedicineName { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Hoạt chất là bắt buộc")]
         [MaxLength(150, ErrorMessage = "Hoạt chất tối đa 150 ký tự")]
-        public string? ActiveIngredient { get; set; }
+        public string ActiveIngredient { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Loại thuốc là bắt buộc")]
         [MaxLength(100, ErrorMessage = "Loại thuốc tối đa 100 ký tự")]
-        public string? MedicineType { get; set; }
+        public string MedicineType { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Đơn vị tính là bắt buộc")]
         [MaxLength(50, ErrorMessage = "Đơn vị tính tối đa 50 ký tự")]
@@ -32,6 +34,12 @@ namespace PharmacyBillingService.DTOs
         public int MinStockLevel { get; set; } = 10;
 
         public DateTime? ExpiryDate { get; set; }
+
+        [RegularExpression("^(Active|Inactive|OutOfStock)$", ErrorMessage = "Trạng thái không hợp lệ. Phải là: Active, Inactive, hoặc OutOfStock")]
+        public string Status { get; set; } = "Active";
+
+        [MaxLength(500, ErrorMessage = "Mô tả tối đa 500 ký tự")]
+        public string? Description { get; set; }
     }
 
     public class UpdateMedicineDto
@@ -40,11 +48,13 @@ namespace PharmacyBillingService.DTOs
         [MaxLength(150, ErrorMessage = "Tên thuốc tối đa 150 ký tự")]
         public string MedicineName { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Hoạt chất là bắt buộc")]
         [MaxLength(150, ErrorMessage = "Hoạt chất tối đa 150 ký tự")]
-        public string? ActiveIngredient { get; set; }
+        public string ActiveIngredient { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Loại thuốc là bắt buộc")]
         [MaxLength(100, ErrorMessage = "Loại thuốc tối đa 100 ký tự")]
-        public string? MedicineType { get; set; }
+        public string MedicineType { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Đơn vị tính là bắt buộc")]
         [MaxLength(50, ErrorMessage = "Đơn vị tính tối đa 50 ký tự")]
@@ -67,6 +77,9 @@ namespace PharmacyBillingService.DTOs
         [Required(ErrorMessage = "Trạng thái là bắt buộc")]
         [RegularExpression("^(Active|Inactive|OutOfStock)$", ErrorMessage = "Trạng thái không hợp lệ. Phải là: Active, Inactive, hoặc OutOfStock")]
         public string Status { get; set; } = "Active";
+
+        [MaxLength(500, ErrorMessage = "Mô tả tối đa 500 ký tự")]
+        public string? Description { get; set; }
     }
 
     public class MedicineDto

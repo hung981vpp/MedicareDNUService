@@ -180,10 +180,14 @@ namespace PharmacyBillingService.Services
 
         public async Task<List<PrescriptionDto>> GetAllPrescriptionsAsync(string? status)
         {
-            var query = _context.Prescriptions.Include(p => p.PrescriptionItems).AsQueryable();
+            var query = _context.Prescriptions
+                .AsNoTracking()
+                .Include(p => p.PrescriptionItems)
+                .AsQueryable();
             if (!string.IsNullOrWhiteSpace(status))
             {
-                query = query.Where(p => p.Status == status);
+                var normalizedStatus = status.Trim().ToLower();
+                query = query.Where(p => p.Status.ToLower() == normalizedStatus);
             }
 
             var prescriptions = await query.OrderByDescending(p => p.CreatedAt).ToListAsync();
@@ -199,6 +203,7 @@ namespace PharmacyBillingService.Services
         public async Task<PrescriptionDto?> GetPrescriptionByIdAsync(int id)
         {
             var prescription = await _context.Prescriptions
+                .AsNoTracking()
                 .Include(p => p.PrescriptionItems)
                 .FirstOrDefaultAsync(p => p.PrescriptionId == id);
 
@@ -208,6 +213,7 @@ namespace PharmacyBillingService.Services
         public async Task<List<PrescriptionDto>> GetPrescriptionsByPatientIdAsync(int patientId)
         {
             var prescriptions = await _context.Prescriptions
+                .AsNoTracking()
                 .Include(p => p.PrescriptionItems)
                 .Where(p => p.PatientId == patientId)
                 .OrderByDescending(p => p.CreatedAt)
@@ -391,6 +397,7 @@ namespace PharmacyBillingService.Services
 
         private static PrescriptionDto MapToPrescriptionDto(Prescription p)
         {
+            var items = p.PrescriptionItems ?? new List<PrescriptionItem>();
             return new PrescriptionDto
             {
                 PrescriptionId = p.PrescriptionId,
@@ -398,14 +405,14 @@ namespace PharmacyBillingService.Services
                 DoctorId = p.DoctorId,
                 AppointmentId = p.AppointmentId,
                 MedicalRecordId = p.MedicalRecordId,
-                Status = p.Status,
+                Status = string.IsNullOrWhiteSpace(p.Status) ? "Pending" : p.Status,
                 CreatedAt = p.CreatedAt,
-                PrescriptionItems = p.PrescriptionItems.Select(pi => new PrescriptionItemDto
+                PrescriptionItems = items.Select(pi => new PrescriptionItemDto
                 {
                     PrescriptionItemId = pi.PrescriptionItemId,
                     PrescriptionId = pi.PrescriptionId,
                     MedicineId = pi.MedicineId,
-                    MedicineName = pi.MedicineName,
+                    MedicineName = string.IsNullOrWhiteSpace(pi.MedicineName) ? $"Thuoc #{pi.MedicineId}" : pi.MedicineName,
                     Quantity = pi.Quantity,
                     Dosage = pi.Dosage,
                     UnitPrice = pi.UnitPrice,
@@ -440,6 +447,7 @@ namespace PharmacyBillingService.Services
 
         private async Task<PrescriptionStockCheckDto> BuildStockCheckAsync(Prescription prescription)
         {
+            var items = prescription.PrescriptionItems ?? new List<PrescriptionItem>();
             var invoice = await _context.Invoices
                 .AsNoTracking()
                 .FirstOrDefaultAsync(i => i.PrescriptionId == prescription.PrescriptionId && i.Status != "Cancelled");
@@ -448,11 +456,11 @@ namespace PharmacyBillingService.Services
             {
                 PrescriptionId = prescription.PrescriptionId,
                 PatientId = prescription.PatientId,
-                PrescriptionStatus = prescription.Status,
+                PrescriptionStatus = string.IsNullOrWhiteSpace(prescription.Status) ? "Pending" : prescription.Status,
                 InvoiceStatus = invoice?.Status
             };
 
-            foreach (var item in prescription.PrescriptionItems)
+            foreach (var item in items)
             {
                 var medicine = await _context.Medicines.AsNoTracking().FirstOrDefaultAsync(m => m.MedicineId == item.MedicineId);
                 var currentStock = medicine == null ? 0 : await GetAvailableBatchQuantityAsync(item.MedicineId);
@@ -463,7 +471,7 @@ namespace PharmacyBillingService.Services
                 {
                     PrescriptionItemId = item.PrescriptionItemId,
                     MedicineId = item.MedicineId,
-                    MedicineName = item.MedicineName,
+                    MedicineName = string.IsNullOrWhiteSpace(item.MedicineName) ? medicine?.MedicineName ?? $"Thuoc #{item.MedicineId}" : item.MedicineName,
                     RequiredQuantity = item.Quantity,
                     CurrentStock = currentStock,
                     ShortageQuantity = shortage,

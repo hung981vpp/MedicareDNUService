@@ -21,7 +21,7 @@ namespace PharmacyBillingService.Controllers
         }
 
         [HttpPost("import")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> ImportStock([FromBody] StockImportDto importDto)
         {
             var userId = GetCurrentUserId();
@@ -43,7 +43,7 @@ namespace PharmacyBillingService.Controllers
         }
 
         [HttpPost("adjust")]
-        [Authorize(Roles = RoleConstants.Admin)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> AdjustStock([FromBody] StockAdjustDto adjustDto)
         {
             var userId = GetCurrentUserId();
@@ -65,28 +65,28 @@ namespace PharmacyBillingService.Controllers
         }
 
         [HttpGet("transactions")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> GetTransactions()
         {
             return Ok(await _inventoryService.GetTransactionsAsync());
         }
 
         [HttpGet("transactions/{medicineId}")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> GetTransactionsByMedicine(int medicineId)
         {
             return Ok(await _inventoryService.GetTransactionsByMedicineIdAsync(medicineId));
         }
 
         [HttpGet("batches")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> GetBatches()
         {
             return Ok(await _inventoryService.GetBatchesAsync());
         }
 
         [HttpGet("batches/{medicineId}")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> GetBatchesByMedicine(int medicineId)
         {
             return Ok(await _inventoryService.GetBatchesByMedicineIdAsync(medicineId));

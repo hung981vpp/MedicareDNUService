@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PharmacyBillingService.DTOs;
 using PharmacyBillingService.Security;
 using PharmacyBillingService.Services;
@@ -40,45 +41,66 @@ namespace PharmacyBillingService.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> CreateMedicine([FromBody] CreateMedicineDto createDto)
         {
-            var result = await _medicineService.CreateMedicineAsync(createDto);
-            return CreatedAtAction(nameof(GetMedicineById), new { id = result.MedicineId }, result);
+            try
+            {
+                var result = await _medicineService.CreateMedicineAsync(createDto);
+                return CreatedAtAction(nameof(GetMedicineById), new { id = result.MedicineId }, result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> UpdateMedicine(int id, [FromBody] UpdateMedicineDto updateDto)
         {
-            var result = await _medicineService.UpdateMedicineAsync(id, updateDto);
-            return result == null ? NotFound(new { Message = "Khong tim thay thuoc yeu cau." }) : Ok(result);
+            try
+            {
+                var result = await _medicineService.UpdateMedicineAsync(id, updateDto);
+                return result == null ? NotFound(new { Message = "Khong tim thay thuoc yeu cau." }) : Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = RoleConstants.Admin)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> DeleteMedicine(int id)
         {
-            var success = await _medicineService.DeleteMedicineAsync(id);
-            return success ? Ok(new { Message = "Xoa/Ngung ban thuoc thanh cong." }) : NotFound(new { Message = "Khong tim thay thuoc yeu cau." });
+            try
+            {
+                var success = await _medicineService.DeleteMedicineAsync(id);
+                return success ? Ok(new { Message = "Da tam ngung thuoc thanh cong." }) : NotFound(new { Message = "Khong tim thay thuoc yeu cau." });
+            }
+            catch (DbUpdateException ex)
+            {
+                return Conflict(new { Message = "Khong the xoa thuoc do co rang buoc du lieu. Vui long tam ngung thuoc.", Detail = ex.Message });
+            }
         }
 
         [HttpGet("low-stock")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> GetLowStock()
         {
             return Ok(await _medicineService.GetLowStockMedicinesAsync());
         }
 
         [HttpGet("expired")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> GetExpired()
         {
             return Ok(await _medicineService.GetExpiredMedicinesAsync());
         }
 
         [HttpGet("expiring-soon")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.InventoryManagers)]
         public async Task<IActionResult> GetExpiringSoon([FromQuery] int days = 30)
         {
             return Ok(await _medicineService.GetExpiringSoonMedicinesAsync(days));

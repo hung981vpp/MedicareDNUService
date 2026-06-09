@@ -76,14 +76,18 @@ namespace PharmacyBillingService.Services
 
         public async Task<MedicineDto> CreateMedicineAsync(CreateMedicineDto createDto)
         {
-            var status = createDto.StockQuantity == 0 ? "OutOfStock" : "Active";
+            var medicineName = RequiredText(createDto.MedicineName, "Ten thuoc la bat buoc.");
+            var activeIngredient = RequiredText(createDto.ActiveIngredient, "Hoat chat la bat buoc.");
+            var medicineType = RequiredText(createDto.MedicineType, "Loai thuoc la bat buoc.");
+            var unit = RequiredText(createDto.Unit, "Don vi tinh la bat buoc.");
+            var status = NormalizeStatus(createDto.Status, createDto.StockQuantity);
             
             var medicine = new Medicine
             {
-                MedicineName = createDto.MedicineName,
-                ActiveIngredient = createDto.ActiveIngredient,
-                MedicineType = string.IsNullOrWhiteSpace(createDto.MedicineType) ? "Khác" : createDto.MedicineType.Trim(),
-                Unit = createDto.Unit,
+                MedicineName = medicineName,
+                ActiveIngredient = activeIngredient,
+                MedicineType = medicineType,
+                Unit = unit,
                 Price = createDto.Price,
                 StockQuantity = createDto.StockQuantity,
                 MinStockLevel = createDto.MinStockLevel,
@@ -118,25 +122,15 @@ namespace PharmacyBillingService.Services
             var medicine = await _context.Medicines.FindAsync(id);
             if (medicine == null) return null;
 
-            medicine.MedicineName = updateDto.MedicineName;
-            medicine.ActiveIngredient = updateDto.ActiveIngredient;
-            medicine.MedicineType = string.IsNullOrWhiteSpace(updateDto.MedicineType) ? "Khác" : updateDto.MedicineType.Trim();
-            medicine.Unit = updateDto.Unit;
+            medicine.MedicineName = RequiredText(updateDto.MedicineName, "Ten thuoc la bat buoc.");
+            medicine.ActiveIngredient = RequiredText(updateDto.ActiveIngredient, "Hoat chat la bat buoc.");
+            medicine.MedicineType = RequiredText(updateDto.MedicineType, "Loai thuoc la bat buoc.");
+            medicine.Unit = RequiredText(updateDto.Unit, "Don vi tinh la bat buoc.");
             medicine.Price = updateDto.Price;
             medicine.StockQuantity = updateDto.StockQuantity;
             medicine.MinStockLevel = updateDto.MinStockLevel;
             medicine.ExpiryDate = updateDto.ExpiryDate;
-            
-            // BR14: Thuốc có StockQuantity = 0 chuyển trạng thái OutOfStock
-            if (medicine.StockQuantity == 0)
-            {
-                medicine.Status = "OutOfStock";
-            }
-            else
-            {
-                medicine.Status = updateDto.Status;
-            }
-
+            medicine.Status = NormalizeStatus(updateDto.Status, updateDto.StockQuantity);
             medicine.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -148,18 +142,8 @@ namespace PharmacyBillingService.Services
             var medicine = await _context.Medicines.FindAsync(id);
             if (medicine == null) return false;
 
-            // BR16: Không được xóa cứng thuốc đã phát sinh đơn thuốc
-            var hasPrescriptionItems = await _context.PrescriptionItems.AnyAsync(pi => pi.MedicineId == id);
-            if (hasPrescriptionItems)
-            {
-                // Thay vì xóa cứng, ta chuyển trạng thái sang Inactive
-                medicine.Status = "Inactive";
-                medicine.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-                return true; // Trả về true biểu thị đã vô hiệu hóa thành công
-            }
-
-            _context.Medicines.Remove(medicine);
+            medicine.Status = "Inactive";
+            medicine.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return true;
         }
@@ -223,6 +207,27 @@ namespace PharmacyBillingService.Services
                 CreatedAt = medicine.CreatedAt,
                 UpdatedAt = medicine.UpdatedAt
             };
+        }
+
+        private static string RequiredText(string? value, string message)
+        {
+            var text = value?.Trim();
+            if (string.IsNullOrWhiteSpace(text)) throw new InvalidOperationException(message);
+            return text;
+        }
+
+        private static string NormalizeStatus(string? status, int stockQuantity)
+        {
+            var value = string.IsNullOrWhiteSpace(status) ? "Active" : status.Trim();
+            if (!string.Equals(value, "Active", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(value, "Inactive", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Equals(value, "OutOfStock", StringComparison.OrdinalIgnoreCase)) return stockQuantity == 0 ? "OutOfStock" : "Active";
+                throw new InvalidOperationException("Trang thai khong hop le. Chi chap nhan Active, Inactive hoac OutOfStock.");
+            }
+
+            if (string.Equals(value, "Inactive", StringComparison.OrdinalIgnoreCase)) return "Inactive";
+            return stockQuantity == 0 ? "OutOfStock" : "Active";
         }
     }
 }
