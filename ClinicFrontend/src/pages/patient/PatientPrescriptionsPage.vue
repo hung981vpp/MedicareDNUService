@@ -1,35 +1,13 @@
 <template>
-  <section class="min-h-screen bg-[#f8fafc] py-6 sm:py-8">
+  <section class="min-h-screen bg-[#f8fafc] py-2 sm:py-3">
+    <FullscreenLoader :show="loading" />
+
     <div class="max-w-none mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
-      <!-- 1. Header trang -->
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-start gap-4">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <Pill class="h-6 w-6" />
-          </span>
-          <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Đơn thuốc của tôi</h1>
-            <p class="mt-1 text-sm text-slate-500">
-              Theo dõi đơn thuốc đã được bác sĩ kê và trạng thái xử lý tại nhà thuốc.
-            </p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <BaseButton variant="outline" :disabled="loading" @click="loadData">
-            <template #icon>
-              <RefreshCw :class="['h-4 w-4', loading ? 'animate-spin' : '']" />
-            </template>
-            Tải lại
-          </BaseButton>
-          <BaseButton class="bg-blue-600 hover:bg-blue-700 text-white font-bold" @click="triggerPrint">
-            <template #icon>
-              <Printer class="h-4 w-4" />
-            </template>
-            In đơn thuốc
-          </BaseButton>
-        </div>
-      </div>
+      <header class="px-1">
+        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">Đơn thuốc của tôi</h1>
+       
+      </header>
 
       <!-- 2. Stats Grid -->
       <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -174,145 +152,93 @@
         </BaseButton>
       </div>
 
-      <div v-if="loading" class="grid gap-4 md:grid-cols-3">
-        <LoadingSkeleton v-for="item in 3" :key="item" />
-      </div>
-
-      <div v-else class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div class="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
           <span class="text-sm font-semibold text-slate-500">
             Tổng số {{ filteredPrescriptions.length }} kết quả đơn thuốc
           </span>
         </div>
 
-        <div v-if="filteredPrescriptions.length" class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-100 text-sm">
-            <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="px-6 py-4 text-left">Mã đơn</th>
-                <th class="px-6 py-4 text-left">Ngày kê</th>
-                <th class="px-6 py-4 text-left">Thuốc</th>
-                <th class="px-6 py-4 text-center">Số loại</th>
-                <th class="px-6 py-4 text-left">Trạng thái</th>
-                <th class="px-6 py-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-              <tr v-for="prescription in paginatedPrescriptions" :key="prescription.id" class="transition hover:bg-slate-50">
-                <!-- Mã đơn -->
-                <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900">
-                  {{ prescription.prescriptionCode || 'DT' + String(prescription.id).padStart(3, '0') }}
-                </td>
-
-                <!-- Ngày kê -->
-                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
-                  {{ formatDateTime(prescription.createdAt) }}
-                </td>
-
-                <!-- Thuốc -->
-                <td class="px-6 py-4">
-                  <p class="font-medium text-slate-800 line-clamp-2 max-w-sm" :title="allMedicinesText(prescription)">
-                    {{ displayMedicines(prescription) }}
-                  </p>
-                </td>
-
-                <!-- Số loại -->
-                <td class="px-6 py-4 whitespace-nowrap text-center font-bold text-slate-500">
-                  {{ (prescription.items || prescription.prescriptionItems || []).length || '-' }}
-                </td>
-
-                <!-- Trạng thái -->
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="['rounded-full px-2.5 py-1 text-xs font-bold inline-flex items-center gap-1', statusClass(prescription.status)]">
-                    <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
-                    {{ statusLabel(prescription.status) }}
-                  </span>
-                </td>
-
-                <!-- Thao tác -->
-                <td class="px-6 py-4 whitespace-nowrap text-right">
-                  <div class="inline-flex gap-2">
-                    <BaseButton
-                      variant="ghost"
-                      size="sm"
-                      class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold flex items-center gap-1.5 border border-transparent"
-                      @click="openDetails(prescription)"
+        <div v-if="filteredPrescriptions.length" class="prescription-table-shell">
+          <ATable
+            :columns="prescriptionTableColumns"
+            :data-source="filteredPrescriptions"
+            :pagination="prescriptionPagination"
+            :row-key="prescriptionRowKey"
+            :scroll="{ x: 1080 }"
+            size="middle"
+            @change="handlePrescriptionTableChange"
+          >
+            <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+              <div class="prescription-filter">
+                <p class="prescription-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+                <AInput
+                  :value="selectedKeys[0]"
+                  :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                  allow-clear
+                  autofocus
+                  @change="setSelectedKeys(getPrescriptionFilterKeys($event))"
+                  @press-enter="confirm()"
+                >
+                  <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+                </AInput>
+                <div class="prescription-filter-actions">
+                  <AButton size="small" class="prescription-filter-reset" @click="clearPrescriptionFilter(clearFilters, confirm)">Đặt lại</AButton>
+                  <AButton type="primary" size="small" class="prescription-filter-submit" @click="confirm()">Áp dụng</AButton>
+                </div>
+              </div>
+            </template>
+            <template #customFilterIcon="{ filtered }">
+              <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            </template>
+            <template #emptyText>
+              <div class="py-8 text-center">
+                <Pill class="mx-auto h-9 w-9 text-slate-300" />
+                <p class="mt-3 font-bold text-slate-800">Không có đơn thuốc phù hợp</p>
+                <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc từ khóa tìm kiếm trong từng cột.</p>
+              </div>
+            </template>
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'code'">
+                <span class="font-bold text-slate-950">{{ prescriptionCode(record) }}</span>
+              </template>
+              <template v-else-if="column.key === 'createdAt'">
+                <span class="whitespace-nowrap text-[13px] font-medium text-slate-500">{{ formatDateTime(record.createdAt) }}</span>
+              </template>
+              <template v-else-if="column.key === 'medicines'">
+                <div class="medicine-button-group" :title="allMedicinesText(record)">
+                  <template v-if="prescriptionMedicineNames(record).length">
+                    <AButton
+                      v-for="(medicine, index) in prescriptionMedicineNames(record)"
+                      :key="`${prescriptionRowKey(record)}-${medicine}-${index}`"
+                      size="small"
+                      :class="['medicine-chip-button', medicineButtonClass(index)]"
                     >
-                      <template #icon>
-                        <Eye class="h-4 w-4" />
-                      </template>
-                      Chi tiết
-                    </BaseButton>
-                    <BaseButton
-                      variant="ghost"
-                      size="sm"
-                      class="bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold flex items-center gap-1.5 border border-transparent"
-                      @click="printPrescription(prescription)"
-                    >
-                      <template #icon>
-                        <Printer class="h-4 w-4 text-slate-500" />
-                      </template>
-                      In
-                    </BaseButton>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Pagination Footer -->
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
-            <div class="flex items-center gap-2 text-sm text-slate-500">
-              <span>Hiển thị</span>
-              <select
-                v-model="itemsPerPage"
-                class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              >
-                <option :value="10">10</option>
-                <option :value="20">20</option>
-                <option :value="50">50</option>
-                <option :value="100">100</option>
-              </select>
-              <span>bản ghi mỗi trang</span>
-            </div>
-
-            <div class="text-sm font-medium text-slate-500">
-              Hiển thị {{ Math.min(filteredPrescriptions.length, (currentPage - 1) * itemsPerPage + 1) }} - {{ Math.min(filteredPrescriptions.length, currentPage * itemsPerPage) }} trên {{ filteredPrescriptions.length }} kết quả
-            </div>
-
-            <div v-if="totalPages > 1" class="flex items-center gap-1.5">
-              <button
-                type="button"
-                :disabled="currentPage === 1"
-                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-                @click="currentPage--"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <button
-                v-for="page in totalPages"
-                :key="page"
-                type="button"
-                :class="[
-                  'h-8 min-w-8 rounded-lg text-sm font-bold transition px-2',
-                  currentPage === page
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                ]"
-                @click="currentPage = page"
-              >
-                {{ page }}
-              </button>
-              <button
-                type="button"
-                :disabled="currentPage === totalPages"
-                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-                @click="currentPage++"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+                      {{ medicine }}
+                    </AButton>
+                  </template>
+                  <span v-else class="text-sm font-medium text-slate-400">Chưa kê thuốc</span>
+                </div>
+              </template>
+              <template v-else-if="column.key === 'medicineCount'">
+                <span class="inline-flex min-w-9 justify-center rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-600">
+                  {{ prescriptionMedicineCount(record) || '-' }}
+                </span>
+              </template>
+              <template v-else-if="column.key === 'status'">
+                <ATag :bordered="false" :class="['prescription-status-tag', statusClass(record.status)]">
+                  <span class="prescription-status-dot"></span>
+                  {{ statusLabel(record.status) }}
+                </ATag>
+              </template>
+              <template v-else-if="column.key === 'actions'">
+                <button type="button" class="prescription-action-button" title="Xem chi tiết đơn thuốc" @click="openDetails(record)">
+                  <Eye class="h-4 w-4" />
+                  <span>Chi tiết</span>
+                </button>
+              </template>
+            </template>
+          </ATable>
         </div>
 
         <!-- Empty state -->
@@ -355,17 +281,7 @@
               Mã: {{ selectedPrescription.prescriptionCode || 'DT' + String(selectedPrescription.id).padStart(3, '0') }}
             </p>
           </div>
-          <div class="flex items-center gap-2">
-            <BaseButton
-              v-slot:icon
-              v-if="selectedPrescription"
-              variant="outline"
-              size="sm"
-              class="border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-bold inline-flex items-center gap-1.5 h-9"
-              @click="printPrescription(selectedPrescription)"
-            >
-              <Printer class="h-4 w-4 text-slate-500" />
-            </BaseButton>
+          <div class="flex items-center">
             <button type="button" class="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" @click="closeDrawer">
               <X class="h-5 w-5" />
             </button>
@@ -514,11 +430,7 @@
             
             <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
               <div class="flex items-center gap-3">
-                <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', 
-                  (selectedPrescription.status && String(selectedPrescription.status).toLowerCase().includes('dispensed') || String(selectedPrescription.status).toLowerCase().includes('complete') || String(selectedPrescription.status).toLowerCase().includes('hoàn'))
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                    : 'bg-amber-50 text-amber-600 border-amber-100'
-                ]">
+                <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', isDispensedStatus(selectedPrescription.status) ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100']">
                   <Send class="h-4 w-4" />
                 </span>
                 <div>
@@ -535,11 +447,16 @@
                 <div class="flex justify-between">
                   <span>Trạng thái phát thuốc:</span>
                   <span class="font-semibold text-slate-700">
-                    {{ selectedPrescription.status && (String(selectedPrescription.status).toLowerCase().includes('dispensed') || String(selectedPrescription.status).toLowerCase().includes('completed') || String(selectedPrescription.status).toLowerCase().includes('hoàn') || String(selectedPrescription.status).toLowerCase().includes('cấp'))
-                      ? 'Đã phát hoàn tất lúc ' + formatDateTime(selectedPrescription.sentToPharmacyAt)
-                      : 'Đang chuẩn bị thuốc tại quầy dược'
-                    }}
+                    {{ pharmacyStatusMessage(selectedPrescription) }}
                   </span>
+                </div>
+                <div class="flex justify-between" v-if="selectedPrescription.invoiceStatus">
+                  <span>Trạng thái viện phí:</span>
+                  <span class="font-semibold text-slate-700">{{ invoiceStatusLabel(selectedPrescription.invoiceStatus) }}</span>
+                </div>
+                <div class="flex justify-between" v-if="selectedPrescription.stockStatus">
+                  <span>Trạng thái tồn kho:</span>
+                  <span class="font-semibold text-slate-700">{{ stockStatusLabel(selectedPrescription.stockStatus) }}</span>
                 </div>
               </div>
             </div>
@@ -558,119 +475,17 @@
       @close="toast.show = false"
     />
 
-    <!-- Print Area for Prescription -->
-    <div v-if="prescriptionToPrint" class="print-area">
-      <div class="print-container p-6 bg-white max-w-2xl mx-auto text-slate-800">
-        <!-- Logo and System Name -->
-        <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
-          <img :src="logoUrl" alt="Logo MedicareDNU" class="h-8 w-auto object-contain" />
-          <div class="text-right text-xs text-slate-500">
-            <p>Hệ thống quản lý phòng khám MedicareDNU</p>
-            <p>Thời gian in: {{ currentPrintDateTime() }}</p>
-          </div>
-        </div>
-
-        <!-- Document Title -->
-        <div class="text-center mb-6">
-          <h1 class="text-xl font-bold text-slate-900 tracking-wide uppercase">Đơn thuốc</h1>
-          <p class="text-xs text-slate-500 mt-1 font-mono">Mã đơn thuốc: {{ prescriptionToPrint.prescriptionCode || 'DT' + String(prescriptionToPrint.id).padStart(3, '0') }}</p>
-        </div>
-
-        <!-- Patient Info -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin bệnh nhân</h2>
-          <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.patientCode || currentPatient?.patientIdCode || prescriptionToPrint.patientCode || prescriptionToPrint.patientIdCode || currentPatient?.id || prescriptionToPrint.patientId || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Họ và tên:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.fullName || authStore.user?.fullName || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Ngày sinh:</span> <span class="font-semibold text-slate-800">{{ formatDate(currentPatient?.dateOfBirth) }}</span></div>
-            <div><span class="font-bold text-slate-500">Giới tính:</span> <span class="font-semibold text-slate-800">{{ genderLabel(currentPatient?.gender) }}</span></div>
-            <div class="col-span-2"><span class="font-bold text-slate-500">Số điện thoại:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.phoneNumber || currentPatient?.phone || 'Chưa có thông tin' }}</span></div>
-          </div>
-        </div>
-
-        <!-- Prescription Info -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin đơn thuốc</h2>
-          <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh án:</span> <span class="font-semibold text-slate-800 font-mono">{{ prescriptionToPrint.medicalRecordCode || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Bác sĩ kê đơn:</span> <span class="font-semibold text-slate-800">{{ associatedDoctorName(prescriptionToPrint) || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Ngày kê đơn:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(prescriptionToPrint.createdAt) }}</span></div>
-            <div><span class="font-bold text-slate-500">Trạng thái xử lý:</span> <span class="font-semibold text-slate-800">{{ statusLabel(prescriptionToPrint.status) }}</span></div>
-          </div>
-        </div>
-
-        <!-- Medicines List Table -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Danh mục thuốc</h2>
-          <table v-if="(prescriptionToPrint.items || prescriptionToPrint.prescriptionItems || []).length" class="min-w-full border border-slate-200 text-xs mb-3">
-            <thead class="bg-slate-50 font-bold text-slate-600 text-left border-b border-slate-200">
-              <tr>
-                <th class="px-2 py-1.5 border-r border-slate-200 w-10 text-center">STT</th>
-                <th class="px-2 py-1.5 border-r border-slate-200">Tên thuốc</th>
-                <th class="px-2 py-1.5 border-r border-slate-200 w-20 text-center">Số lượng</th>
-                <th class="px-2 py-1.5 border-r border-slate-200">Liều lượng</th>
-                <th class="px-2 py-1.5">Cách dùng / Hướng dẫn</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 bg-white">
-              <tr v-for="(item, index) in (prescriptionToPrint.items || prescriptionToPrint.prescriptionItems)" :key="item.id">
-                <td class="px-2 py-1.5 border-r border-slate-200 text-center font-medium">{{ index + 1 }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 font-bold text-slate-800">{{ item.medicineNameSnapshot || item.medicineName }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 text-center font-bold">{{ item.quantity }} {{ item.unitSnapshot || 'Viên' }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 font-medium">{{ item.dosage || 'Chỉ định' }} · {{ item.frequency || 'Chưa cập nhật' }}</td>
-                <td class="px-2 py-1.5 font-medium">{{ item.usageInstruction || 'Theo dặn dò' }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-else-if="prescriptionToPrint.note" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-semibold">
-            {{ prescriptionToPrint.note }}
-          </div>
-          <div v-else class="text-xs text-slate-500 italic pl-3">Chưa có thông tin danh sách thuốc chi tiết</div>
-        </div>
-
-        <!-- Footnote / Safety notes -->
-        <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-[10px] text-blue-800 leading-relaxed mb-6">
-          <span class="font-bold">Lưu ý:</span> Uống thuốc đúng giờ, đúng liều theo chỉ dẫn. Không tự ý ngưng thuốc hoặc thay đổi liều lượng thuốc được bác sĩ kê.
-        </div>
-
-        <!-- Signature Block -->
-        <div class="mt-8 pt-6 border-t border-slate-200 grid grid-cols-3 text-center text-xs gap-4">
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Bệnh nhân</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800">{{ currentPatient?.fullName || authStore.user?.fullName || '' }}</p>
-          </div>
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Dược sĩ</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800"></p>
-          </div>
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Bác sĩ kê đơn</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800">{{ associatedDoctorName(prescriptionToPrint) }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import {
-  CalendarClock,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Eye,
-  FileText,
   Pill,
-  Printer,
   RefreshCw,
   Search,
   Send,
@@ -678,6 +493,7 @@ import {
   X
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
@@ -688,7 +504,6 @@ import type { Prescription } from '@/types/billing'
 import type { Appointment } from '@/types/appointment'
 import type { Patient } from '@/types/medicalRecord'
 import type { Doctor } from '@/types/doctor'
-import logoUrl from '@/assets/logo.png'
 
 const authStore = useAuthStore()
 const loading = ref(true)
@@ -712,9 +527,6 @@ const filters = reactive({
 const drawerOpen = ref(false)
 const selectedPrescription = ref<Prescription | null>(null)
 const currentTab = ref('overview')
-
-// Print State
-const prescriptionToPrint = ref<Prescription | null>(null)
 
 const drawerTabs = [
   { key: 'overview', label: 'Tổng quan' },
@@ -741,20 +553,11 @@ watch(() => toast.show, (visible) => {
 const stats = computed(() => {
   const total = prescriptions.value.length
   
-  const pending = prescriptions.value.filter(p => {
-    const s = String(p.status || '').toLowerCase()
-    return s.includes('pending') || s.includes('chờ')
-  }).length
+  const pending = prescriptions.value.filter(p => ['pending', 'processing', 'partial', 'outOfStock'].includes(prescriptionStatusBucket(p.status))).length
 
-  const sent = prescriptions.value.filter(p => {
-    const s = String(p.status || '').toLowerCase()
-    return s.includes('sent') || s.includes('gửi')
-  }).length
+  const sent = prescriptions.value.filter(p => ['sent', 'ready'].includes(prescriptionStatusBucket(p.status))).length
 
-  const completed = prescriptions.value.filter(p => {
-    const s = String(p.status || '').toLowerCase()
-    return s.includes('dispensed') || s.includes('completed') || s.includes('hoàn') || s.includes('cấp')
-  }).length
+  const completed = prescriptions.value.filter(p => ['dispensed', 'completed'].includes(prescriptionStatusBucket(p.status))).length
 
   return { total, pending, sent, completed }
 })
@@ -785,12 +588,12 @@ const filteredPrescriptions = computed(() => {
 
     // 2. Status filter
     if (filters.status !== 'ALL') {
-      const s = String(p.status || '').toUpperCase()
-      if (filters.status === 'PENDING' && !s.includes('PENDING') && !s.includes('CHỜ')) return false
-      if (filters.status === 'SENT_TO_PHARMACY' && !s.includes('SENT') && !s.includes('GỬI')) return false
-      if (filters.status === 'DISPENSED' && !s.includes('DISPENSED') && !s.includes('CẤP')) return false
-      if (filters.status === 'COMPLETED' && !s.includes('COMPLETED') && !s.includes('HOÀN')) return false
-      if (filters.status === 'CANCELLED' && !s.includes('CANCEL') && !s.includes('HỦY')) return false
+      const bucket = prescriptionStatusBucket(p.status)
+      if (filters.status === 'PENDING' && !['pending', 'processing', 'partial', 'outOfStock'].includes(bucket)) return false
+      if (filters.status === 'SENT_TO_PHARMACY' && !['sent', 'ready'].includes(bucket)) return false
+      if (filters.status === 'DISPENSED' && bucket !== 'dispensed') return false
+      if (filters.status === 'COMPLETED' && !['completed', 'dispensed'].includes(bucket)) return false
+      if (filters.status === 'CANCELLED' && bucket !== 'cancelled') return false
     }
 
     // 3. Date range filter
@@ -827,6 +630,69 @@ const paginatedPrescriptions = computed(() => {
   const end = start + itemsPerPage.value
   return filteredPrescriptions.value.slice(start, end)
 })
+
+const prescriptionTableColumns = [
+  {
+    title: 'Mã đơn',
+    key: 'code',
+    width: 150,
+    customFilterDropdown: true,
+    onFilter: prescriptionColumnFilter('code'),
+    sorter: (a: Prescription, b: Prescription) => prescriptionCode(a).localeCompare(prescriptionCode(b), 'vi'),
+  },
+  {
+    title: 'Ngày kê',
+    dataIndex: 'createdAt',
+    key: 'createdAt',
+    width: 210,
+    customFilterDropdown: true,
+    onFilter: prescriptionColumnFilter('createdAt'),
+    sorter: (a: Prescription, b: Prescription) => prescriptionTimestamp(a) - prescriptionTimestamp(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Thuốc',
+    key: 'medicines',
+    minWidth: 320,
+    customFilterDropdown: true,
+    onFilter: prescriptionColumnFilter('medicines'),
+  },
+  {
+    title: 'Số loại',
+    key: 'medicineCount',
+    width: 140,
+    align: 'center' as const,
+    customFilterDropdown: true,
+    onFilter: prescriptionColumnFilter('medicineCount'),
+    sorter: (a: Prescription, b: Prescription) => prescriptionMedicineCount(a) - prescriptionMedicineCount(b),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 230,
+    customFilterDropdown: true,
+    onFilter: prescriptionColumnFilter('status'),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 150,
+    align: 'right' as const,
+    fixed: 'right' as const,
+  },
+]
+
+const prescriptionPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `Hiển thị ${range[0]} - ${range[1]} trên ${total} kết quả`,
+  locale: { items_per_page: ' / trang' },
+}))
 
 onMounted(loadData)
 
@@ -888,40 +754,102 @@ function resetFilters() {
   filters.endDate = ''
 }
 
-function currentPrintDateTime() {
-  return formatDateTime(new Date().toISOString())
-}
-
-async function printPrescription(prescription: Prescription) {
-  prescriptionToPrint.value = prescription
-  showToast('In đơn thuốc', 'Đang chuẩn bị bản in...', 'success')
-  await nextTick()
-  setTimeout(() => {
-    window.print()
-  }, 300)
-}
-
-function triggerPrint() {
-  if (selectedPrescription.value) {
-    printPrescription(selectedPrescription.value)
-    return
-  }
-  if (prescriptions.value.length === 1) {
-    printPrescription(prescriptions.value[0])
-    return
-  }
-  if (prescriptions.value.length === 0) {
-    showToast('In đơn thuốc', 'Chưa có dữ liệu đơn thuốc để in', 'error')
-    return
-  }
-  showToast('In đơn thuốc', 'Vui lòng chọn đơn thuốc cần in', 'error')
-}
-
 // Helpers for medicines lists
+function prescriptionRowKey(prescription: Prescription) {
+  return String(
+    prescription.id ||
+    prescription.prescriptionId ||
+    prescription.prescriptionCode ||
+    prescription.createdAt ||
+    `prescription-${prescriptions.value.indexOf(prescription)}`,
+  )
+}
+
+function prescriptionCode(prescription: Prescription) {
+  const id = prescription.id || prescription.prescriptionId
+  return prescription.prescriptionCode || prescription.prescriptionIdCode || `DT${String(id || 0).padStart(3, '0')}`
+}
+
+function prescriptionItems(prescription: Prescription) {
+  return prescription.items || prescription.prescriptionItems || []
+}
+
+function prescriptionMedicineNames(prescription: Prescription) {
+  const names = prescriptionItems(prescription)
+    .map(item => item.medicineNameSnapshot || item.medicineName)
+    .filter(Boolean) as string[]
+  if (names.length) return names
+  if (!prescription.note) return []
+  return prescription.note
+    .split('\n')
+    .map(line => line.split(':')[0].trim())
+    .filter(Boolean)
+}
+
+function prescriptionMedicineCount(prescription: Prescription) {
+  const itemCount = prescriptionItems(prescription).length
+  return itemCount || prescriptionMedicineNames(prescription).length
+}
+
+function prescriptionTimestamp(prescription: Prescription) {
+  const time = prescription.createdAt ? new Date(prescription.createdAt).getTime() : 0
+  return Number.isNaN(time) ? 0 : time
+}
+
+function medicineButtonClass(index: number) {
+  const classes = [
+    'medicine-chip-blue',
+    'medicine-chip-emerald',
+    'medicine-chip-amber',
+    'medicine-chip-rose',
+    'medicine-chip-cyan',
+    'medicine-chip-violet',
+  ]
+  return classes[index % classes.length]
+}
+
+function prescriptionSearchField(prescription: Prescription, key: string) {
+  if (key === 'code') return prescriptionCode(prescription)
+  if (key === 'createdAt') return formatDateTime(prescription.createdAt)
+  if (key === 'medicines') return allMedicinesText(prescription)
+  if (key === 'medicineCount') return String(prescriptionMedicineCount(prescription) || '-')
+  if (key === 'status') return statusLabel(prescription.status)
+  return ''
+}
+
+function prescriptionColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Prescription) =>
+    normalizeSearchText(prescriptionSearchField(record, key)).includes(normalizeSearchText(filterValue))
+}
+
+function normalizeSearchText(valueToNormalize: unknown) {
+  return String(valueToNormalize || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+
+function getPrescriptionFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearPrescriptionFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handlePrescriptionTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
 function displayMedicines(prescription: Prescription) {
-  const items = prescription.items || prescription.prescriptionItems || []
-  if (items.length) {
-    const names = items.map(item => item.medicineNameSnapshot || item.medicineName).filter(Boolean)
+  const names = prescriptionMedicineNames(prescription)
+  if (names.length) {
     if (names.length <= 2) return names.join(', ')
     return `${names.slice(0, 2).join(', ')} +${names.length - 2} thuốc khác`
   }
@@ -946,10 +874,8 @@ function formatDate(value?: string) {
 }
 
 function allMedicinesText(prescription: Prescription) {
-  const items = prescription.items || prescription.prescriptionItems || []
-  if (items.length) {
-    return items.map(item => item.medicineNameSnapshot || item.medicineName).filter(Boolean).join(', ')
-  }
+  const names = prescriptionMedicineNames(prescription)
+  if (names.length) return names.join(', ')
   return prescription.note || 'Chưa kê thuốc'
 }
 
@@ -1046,10 +972,16 @@ function mergePrescriptions(n2List: Prescription[], n3List: Prescription[]): Pre
       existing.medicalRecordId = existing.medicalRecordId || n3Normalized.medicalRecordId
       existing.medicalRecordCode = existing.medicalRecordCode || n3Normalized.medicalRecordCode
       existing.appointmentId = existing.appointmentId || n3Normalized.appointmentId
-      existing.status = existing.status || n3Normalized.status
+      existing.status = n3Normalized.status || existing.status
+      existing.stockStatus = n3Normalized.stockStatus || existing.stockStatus
+      existing.invoiceStatus = n3Normalized.invoiceStatus || existing.invoiceStatus
+      existing.canApprove = n3Normalized.canApprove ?? existing.canApprove
+      existing.canDispense = n3Normalized.canDispense ?? existing.canDispense
       existing.note = existing.note || n3Normalized.note
-      existing.createdAt = existing.createdAt || n3Normalized.createdAt
-      existing.sentToPharmacyAt = existing.sentToPharmacyAt || n3Normalized.sentToPharmacyAt
+      existing.createdAt = n3Normalized.createdAt || existing.createdAt
+      existing.sentToPharmacyAt = n3Normalized.sentToPharmacyAt || existing.sentToPharmacyAt
+      existing.submittedAt = n3Normalized.submittedAt || existing.submittedAt
+      existing.dispensedAt = n3Normalized.dispensedAt || existing.dispensedAt
 
       const existingItems = existing.items || []
       const n3Items = n3Normalized.items || []
@@ -1116,24 +1048,79 @@ function formatDateTime(value?: string) {
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
+function prescriptionStatusBucket(status?: string) {
+  const s = String(status || '').trim().toLowerCase()
+  if (!s) return 'unknown'
+  if (s.includes('cancel') || s.includes('hủy')) return 'cancelled'
+  if (s.includes('dispensed') || s.includes('đã phát') || s.includes('da phat') || s.includes('cấp')) return 'dispensed'
+  if (s.includes('readytodispense') || s.includes('ready_to_dispense') || s.includes('ready') || s.includes('sẵn sàng')) return 'ready'
+  if (s.includes('partiallyavailable') || s.includes('partial') || s.includes('một phần')) return 'partial'
+  if (s.includes('outofstock') || s.includes('out_of_stock') || s.includes('thiếu')) return 'outOfStock'
+  if (s.includes('senttopharmacy') || s.includes('sent_to_pharmacy') || s.includes('sent') || s.includes('gửi')) return 'sent'
+  if (s.includes('processing') || s.includes('đang xử')) return 'processing'
+  if (s.includes('completed') || s.includes('complete') || s.includes('hoàn')) return 'completed'
+  if (s.includes('pending') || s.includes('chờ')) return 'pending'
+  return 'unknown'
+}
+
 function statusLabel(status?: string) {
-  const s = String(status || '').toLowerCase()
-  if (s.includes('sent') || s.includes('gửi')) return 'Đã gửi nhà thuốc'
-  if (s.includes('pending') || s.includes('chờ')) return 'Chờ xử lý'
-  if (s.includes('dispensed') || s.includes('cấp')) return 'Đã cấp thuốc'
-  if (s.includes('completed') || s.includes('hoàn')) return 'Hoàn tất'
-  if (s.includes('cancel') || s.includes('hủy')) return 'Đã hủy'
+  const bucket = prescriptionStatusBucket(status)
+  if (bucket === 'sent') return 'Đã gửi nhà thuốc'
+  if (bucket === 'ready') return 'Sẵn sàng phát thuốc'
+  if (bucket === 'pending') return 'Chờ xử lý'
+  if (bucket === 'processing') return 'Đang xử lý'
+  if (bucket === 'partial') return 'Thiếu một phần'
+  if (bucket === 'outOfStock') return 'Thiếu thuốc'
+  if (bucket === 'dispensed') return 'Đã phát thuốc'
+  if (bucket === 'completed') return 'Hoàn tất'
+  if (bucket === 'cancelled') return 'Đã hủy'
   return status || 'Chưa cập nhật'
 }
 
 function statusClass(status?: string) {
-  const s = String(status || '').toLowerCase()
-  if (s.includes('sent') || s.includes('gửi')) return 'bg-emerald-50 text-emerald-700 border-emerald-100'
-  if (s.includes('pending') || s.includes('chờ')) return 'bg-amber-50 text-amber-700 border-amber-100'
-  if (s.includes('dispensed') || s.includes('cấp')) return 'bg-blue-50 text-blue-700 border-blue-100'
-  if (s.includes('completed') || s.includes('hoàn')) return 'bg-emerald-50 text-emerald-700 border-emerald-100'
-  if (s.includes('cancel') || s.includes('hủy')) return 'bg-rose-50 text-rose-700 border-rose-100'
+  const bucket = prescriptionStatusBucket(status)
+  if (bucket === 'sent') return 'bg-cyan-50 text-cyan-700 border-cyan-100'
+  if (bucket === 'ready') return 'bg-sky-50 text-sky-700 border-sky-100'
+  if (bucket === 'pending' || bucket === 'processing') return 'bg-amber-50 text-amber-700 border-amber-100'
+  if (bucket === 'partial' || bucket === 'outOfStock') return 'bg-orange-50 text-orange-700 border-orange-100'
+  if (bucket === 'dispensed' || bucket === 'completed') return 'bg-emerald-50 text-emerald-700 border-emerald-100'
+  if (bucket === 'cancelled') return 'bg-rose-50 text-rose-700 border-rose-100'
   return 'bg-slate-50 text-slate-700 border-slate-100'
+}
+
+function isDispensedStatus(status?: string) {
+  return ['dispensed', 'completed'].includes(prescriptionStatusBucket(status))
+}
+
+function pharmacyStatusMessage(prescription: Prescription) {
+  const bucket = prescriptionStatusBucket(prescription.status)
+  if (bucket === 'dispensed' || bucket === 'completed') {
+    const time = prescription.dispensedAt || prescription.submittedAt || prescription.sentToPharmacyAt
+    return time ? `Đã phát thuốc lúc ${formatDateTime(time)}` : 'Đã phát thuốc'
+  }
+  if (bucket === 'ready') return 'Sẵn sàng phát thuốc tại quầy dược'
+  if (bucket === 'sent') return 'Đã gửi sang nhà thuốc, đang chờ kiểm kho'
+  if (bucket === 'partial') return 'Nhà thuốc thiếu một phần thuốc trong đơn'
+  if (bucket === 'outOfStock') return 'Nhà thuốc đang thiếu thuốc'
+  if (bucket === 'cancelled') return 'Đơn thuốc đã hủy'
+  return 'Chưa phát thuốc'
+}
+
+function invoiceStatusLabel(status?: string) {
+  const s = String(status || '').toLowerCase()
+  if (s.includes('partial')) return 'Thanh toán một phần'
+  if (s.includes('paid') && !s.includes('unpaid')) return 'Đã thanh toán'
+  if (s.includes('cancel')) return 'Đã hủy'
+  if (s.includes('unpaid')) return 'Chưa thanh toán'
+  return status || 'Chưa cập nhật'
+}
+
+function stockStatusLabel(status?: string) {
+  const s = String(status || '').toLowerCase()
+  if (s.includes('available') && !s.includes('partial')) return 'Đủ thuốc'
+  if (s.includes('partial')) return 'Thiếu một phần'
+  if (s.includes('out') || s.includes('shortage')) return 'Thiếu thuốc'
+  return status || 'Chưa cập nhật'
 }
 
 function showToast(title: string, message: string, type: 'success' | 'error' = 'success') {
@@ -1151,37 +1138,171 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-</style>
 
-<style>
-@media print {
-  body * {
-    visibility: hidden !important;
-  }
-  .print-area,
-  .print-area * {
-    visibility: visible !important;
-  }
-  .print-area {
-    display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    background: white !important;
-    color: black !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  
-  @page {
-    size: A4;
-    margin: 15mm;
-  }
+.prescription-table-shell {
+  overflow: hidden;
 }
 
-/* Hide print area by default on screen */
-.print-area {
-  display: none !important;
+.prescription-table-shell :deep(.ant-table) {
+  color: #334155;
+  font-size: 14px;
+}
+
+.prescription-table-shell :deep(.ant-table-thead > tr > th) {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 16px 20px;
+  text-transform: uppercase;
+}
+
+.prescription-table-shell :deep(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 18px 20px;
+  vertical-align: middle;
+}
+
+.prescription-table-shell :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f8fafc;
+}
+
+.prescription-table-shell :deep(.ant-table-cell-fix-right) {
+  background: #fff;
+}
+
+.prescription-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
+  background: #f8fafc;
+}
+
+.prescription-table-shell :deep(.ant-pagination) {
+  border-top: 1px solid #f1f5f9;
+  margin: 0;
+  padding: 16px;
+}
+
+.prescription-filter {
+  width: 260px;
+  padding: 12px;
+}
+
+.prescription-filter-title {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.prescription-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.prescription-filter-reset {
+  border-color: #e2e8f0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.prescription-filter-submit {
+  background: #0F52BA;
+  border-color: #0F52BA;
+  font-weight: 700;
+}
+
+.medicine-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 460px;
+}
+
+.medicine-chip-button {
+  border: 0;
+  border-radius: 999px;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 800;
+  height: 30px;
+  max-width: 210px;
+  overflow: hidden;
+  padding: 0 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.medicine-chip-blue {
+  background: #eaf3ff;
+  color: #0F52BA;
+}
+
+.medicine-chip-emerald {
+  background: #dcfce7;
+  color: #047857;
+}
+
+.medicine-chip-amber {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.medicine-chip-rose {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.medicine-chip-cyan {
+  background: #cffafe;
+  color: #0e7490;
+}
+
+.medicine-chip-violet {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.prescription-status-tag {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  line-height: 1;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.prescription-status-dot {
+  background: currentColor;
+  border-radius: 999px;
+  height: 7px;
+  width: 7px;
+}
+
+.prescription-action-button {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  height: 36px;
+  justify-content: center;
+  padding: 0 14px;
+  transition: background .2s, border-color .2s, color .2s;
+}
+
+.prescription-action-button:hover {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #0F52BA;
 }
 </style>

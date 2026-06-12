@@ -1,5 +1,7 @@
 <template>
   <section class="space-y-6">
+    <FullscreenLoader :show="loading" />
+
     <div
       class="relative overflow-hidden rounded-2xl border border-blue-100 bg-[#003c90] p-6 text-white shadow-[0_20px_50px_rgba(15,82,186,0.22)] sm:p-7 lg:p-8"
     >
@@ -7,11 +9,7 @@
       <div class="absolute -bottom-20 -right-12 h-48 w-48 rounded-full border border-white/10"></div>
       <div class="relative z-10 grid gap-8 lg:grid-cols-[1fr_320px] lg:items-center">
         <div>
-          <p class="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-blue-50">
-            <ShieldCheck class="h-4 w-4" />
-            Cổng bệnh nhân
-          </p>
-          <h1 class="mt-5 max-w-2xl text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
+          <h1 class="max-w-2xl text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
             Xin chào, {{ displayName }}
           </h1>
           <p class="mt-4 max-w-2xl text-sm leading-6 text-blue-50/90 sm:text-base">
@@ -70,11 +68,7 @@
       {{ error }}
     </div>
 
-    <div v-if="loading" class="grid gap-4 md:grid-cols-3">
-      <LoadingSkeleton v-for="item in 3" :key="item" />
-    </div>
-
-    <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <RouterLink
         v-for="stat in stats"
         :key="stat.label"
@@ -114,7 +108,7 @@
           <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="text-lg font-bold text-slate-950">Lịch hẹn gần nhất</h2>
-              <p class="mt-1 text-sm text-slate-500">Nguồn N1 Appointment Service</p>
+              <p class="mt-1 text-sm text-slate-500">Lịch khám đã đặt</p>
             </div>
             <RouterLink to="/patient/appointments" class="inline-flex items-center gap-1 text-sm font-bold text-[#003c90] hover:text-[#0F52BA]">
               Xem tất cả
@@ -145,7 +139,7 @@
           <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="text-lg font-bold text-slate-950">Hồ sơ bệnh án gần đây</h2>
-              <p class="mt-1 text-sm text-slate-500">Nguồn N2 Medical Record Service</p>
+              <p class="mt-1 text-sm text-slate-500">Hồ sơ khám gần đây</p>
             </div>
             <RouterLink to="/patient/records" class="inline-flex items-center gap-1 text-sm font-bold text-[#003c90] hover:text-[#0F52BA]">
               Xem hồ sơ
@@ -251,7 +245,7 @@ import {
   Stethoscope,
   UserRoundSearch,
 } from 'lucide-vue-next'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
@@ -269,13 +263,16 @@ const invoices = ref<Invoice[]>([])
 const records = ref<MedicalRecord[]>([])
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'bệnh nhân')
-const nextAppointment = computed(() => appointments.value[0])
+const upcomingAppointments = computed(() => appointments.value
+  .filter(isUpcomingAppointment)
+  .sort((a, b) => appointmentStartTimestamp(a) - appointmentStartTimestamp(b)))
+const nextAppointment = computed(() => upcomingAppointments.value[0] || null)
 const unpaidInvoices = computed(() => invoices.value.filter((item) => String(item.status || '').toLowerCase().includes('unpaid')))
 
 const stats = computed(() => [
-  { label: 'Lịch hẹn', value: appointments.value.length, note: 'N1 Appointment', to: '/patient/appointments', icon: CalendarCheck, iconClass: 'bg-blue-50 text-[#0F52BA]' },
-  { label: 'Bệnh án', value: records.value.length, note: 'N2 Medical Record', to: '/patient/records', icon: FileHeart, iconClass: 'bg-indigo-50 text-indigo-700' },
-  { label: 'Hóa đơn', value: invoices.value.length, note: 'N3 Billing', to: '/patient/bills', icon: CreditCard, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { label: 'Lịch hẹn', value: appointments.value.length, note: 'Theo dõi lịch khám', to: '/patient/appointments', icon: CalendarCheck, iconClass: 'bg-blue-50 text-[#0F52BA]' },
+  { label: 'Bệnh án', value: records.value.length, note: 'Hồ sơ khám bệnh', to: '/patient/records', icon: FileHeart, iconClass: 'bg-indigo-50 text-indigo-700' },
+  { label: 'Hóa đơn', value: invoices.value.length, note: 'Viện phí & thanh toán', to: '/patient/bills', icon: CreditCard, iconClass: 'bg-emerald-50 text-emerald-700' },
   { label: 'Chưa thanh toán', value: unpaidInvoices.value.length, note: 'Cần theo dõi', to: '/patient/bills', icon: BellRing, iconClass: 'bg-amber-50 text-amber-700' },
 ])
 
@@ -353,6 +350,58 @@ function medicalRecordDisplayCode(record: MedicalRecord & Record<string, any>) {
 
 function invoiceDisplayCode(invoice: Invoice & Record<string, any>) {
   return invoice.invoiceCode || invoice.invoiceIdCode || invoice.InvoiceCode || invoice.InvoiceIdCode || invoice.invoiceId || '-'
+}
+
+function isUpcomingAppointment(appointment: Appointment & Record<string, any>) {
+  if (isClosedAppointmentStatus(appointment.status || appointment.Status)) return false
+  const timestamp = appointmentStartTimestamp(appointment)
+  return Number.isFinite(timestamp) && timestamp >= Date.now()
+}
+
+function isClosedAppointmentStatus(status?: string | number) {
+  const value = String(status || '').trim().toLowerCase()
+  return value.includes('completed')
+    || value.includes('complete')
+    || value.includes('done')
+    || value.includes('hoàn')
+    || value.includes('cancel')
+    || value.includes('hủy')
+    || value.includes('huỷ')
+    || value.includes('noshow')
+    || value.includes('no show')
+    || value.includes('expired')
+    || value.includes('quá hạn')
+}
+
+function appointmentStartTimestamp(appointment: Appointment & Record<string, any>) {
+  const scheduledAt = appointment.scheduledAt || appointment.ScheduledAt
+  if (scheduledAt) {
+    const scheduledTime = new Date(String(scheduledAt)).getTime()
+    if (Number.isFinite(scheduledTime)) return scheduledTime
+  }
+
+  const dateOnly = normalizeAppointmentDate(appointment.appointmentDate || appointment.AppointmentDate)
+  if (!dateOnly) return Number.NaN
+  const timeText = String(appointment.slotTime || appointment.SlotTime || '00:00').slice(0, 5)
+  const time = /^\d{1,2}:\d{2}$/.test(timeText) ? timeText : '00:00'
+  return new Date(`${dateOnly}T${time}:00`).getTime()
+}
+
+function normalizeAppointmentDate(value: unknown) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+
+  const viMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  if (viMatch) {
+    const day = viMatch[1].padStart(2, '0')
+    const month = viMatch[2].padStart(2, '0')
+    return `${viMatch[3]}-${month}-${day}`
+  }
+
+  const parsed = new Date(text)
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10)
 }
 
 function formatCurrency(value: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0)) }

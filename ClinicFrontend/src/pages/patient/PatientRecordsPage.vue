@@ -1,35 +1,13 @@
 <template>
-  <section class="min-h-screen bg-[#f8fafc] py-6 sm:py-8">
+  <section class="min-h-screen bg-[#f8fafc] py-2 sm:py-3">
+    <FullscreenLoader :show="loading" />
+
     <div class="max-w-none mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
-      <!-- 1. Header trang -->
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-start gap-4">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <FileHeart class="h-6 w-6" />
-          </span>
-          <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Hồ sơ bệnh án</h1>
-            <p class="mt-1 text-sm text-slate-500">
-              Theo dõi chẩn đoán, ghi chú bác sĩ, kế hoạch điều trị và lịch tái khám.
-            </p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <BaseButton variant="outline" :disabled="loading" @click="loadData">
-            <template #icon>
-              <RefreshCw :class="['h-4 w-4', loading ? 'animate-spin' : '']" />
-            </template>
-            Tải lại
-          </BaseButton>
-          <BaseButton class="bg-blue-600 hover:bg-blue-700 text-white" @click="triggerPrint">
-            <template #icon>
-              <Printer class="h-4 w-4" />
-            </template>
-            In hồ sơ
-          </BaseButton>
-        </div>
-      </div>
+      <header class="px-1">
+        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">Hồ sơ bệnh án</h1>
+        
+      </header>
 
       <!-- 2. Stats Grid -->
       <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -172,143 +150,91 @@
         {{ error }}
       </div>
 
-      <div v-if="loading" class="grid gap-4 md:grid-cols-3">
-        <LoadingSkeleton v-for="item in 3" :key="item" />
-      </div>
-
-      <div v-else class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div class="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
           <span class="text-sm font-semibold text-slate-500">
             Tổng số {{ filteredRecords.length }} kết quả bệnh án
           </span>
         </div>
 
-        <div v-if="filteredRecords.length" class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-100 text-sm">
-            <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="px-6 py-4 text-left">Mã BA</th>
-                <th class="px-6 py-4 text-left">Chẩn đoán</th>
-                <th class="px-6 py-4 text-left">Mã ICD</th>
-                <th class="px-6 py-4 text-left">Ngày tạo</th>
-                <th class="px-6 py-4 text-left">Tái khám</th>
-                <th class="px-6 py-4 text-left">Trạng thái</th>
-                <th class="px-6 py-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-              <tr v-for="record in paginatedRecords" :key="record.medicalRecordId || record.id" class="transition hover:bg-slate-50">
-                <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900">
-                  {{ record.medicalRecordCode || 'Chưa cập nhật' }}
-                </td>
-                <td class="px-6 py-4">
-                  <p class="font-medium text-slate-800 line-clamp-2 max-w-sm">
-                    {{ record.diagnosisText || record.diagnosis || 'Chưa cập nhật chẩn đoán' }}
-                  </p>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-slate-600 font-mono text-xs">
-                  {{ record.diagnosisCode || '-' }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
-                  {{ formatDate(record.createdAt) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span v-if="record.followUpDate" class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-100 inline-flex items-center gap-1">
-                    {{ formatDate(record.followUpDate) }}
-                  </span>
-                  <span v-else class="text-slate-400 text-xs font-medium">
-                    Chưa có
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="['rounded-full px-2.5 py-1 text-xs font-bold inline-flex items-center gap-1', statusClass(record.status)]">
-                    <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
-                    {{ statusLabel(record.status) }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right">
-                  <div class="inline-flex gap-2">
-                    <BaseButton
-                      variant="ghost"
-                      size="sm"
-                      class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold flex items-center gap-1.5 border border-transparent"
-                      @click="openDetails(record)"
-                    >
-                      <template #icon>
-                        <Eye class="h-4 w-4" />
-                      </template>
-                      Chi tiết
-                    </BaseButton>
-                    <BaseButton
-                      variant="ghost"
-                      size="sm"
-                      class="bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold flex items-center gap-1.5 border border-transparent"
-                      @click="printMedicalRecord(record)"
-                    >
-                      <template #icon>
-                        <Printer class="h-4 w-4 text-slate-500" />
-                      </template>
-                      In
-                    </BaseButton>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Pagination Footer -->
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
-            <div class="flex items-center gap-2 text-sm text-slate-500">
-              <span>Hiển thị</span>
-              <select
-                v-model="itemsPerPage"
-                class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              >
-                <option :value="10">10</option>
-                <option :value="20">20</option>
-                <option :value="50">50</option>
-                <option :value="100">100</option>
-              </select>
-              <span>bản ghi mỗi trang</span>
-            </div>
-
-            <div class="text-sm font-medium text-slate-500">
-              Hiển thị {{ Math.min(filteredRecords.length, (currentPage - 1) * itemsPerPage + 1) }} - {{ Math.min(filteredRecords.length, currentPage * itemsPerPage) }} trên {{ filteredRecords.length }} kết quả
-            </div>
-
-            <div v-if="totalPages > 1" class="flex items-center gap-1.5">
-              <button
-                type="button"
-                :disabled="currentPage === 1"
-                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-                @click="currentPage--"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <button
-                v-for="page in totalPages"
-                :key="page"
-                type="button"
-                :class="[
-                  'h-8 min-w-8 rounded-lg text-sm font-bold transition px-2',
-                  currentPage === page
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                ]"
-                @click="currentPage = page"
-              >
-                {{ page }}
-              </button>
-              <button
-                type="button"
-                :disabled="currentPage === totalPages"
-                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-                @click="currentPage++"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+        <div v-if="filteredRecords.length" class="medical-record-table-shell">
+          <ATable
+            :columns="medicalRecordTableColumns"
+            :data-source="filteredRecords"
+            :pagination="medicalRecordPagination"
+            :row-key="recordIdentity"
+            :scroll="{ x: 1120 }"
+            size="middle"
+            @change="handleMedicalRecordTableChange"
+          >
+            <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+              <div class="medical-record-filter">
+                <p class="medical-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+                <AInput
+                  :value="selectedKeys[0]"
+                  :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                  allow-clear
+                  autofocus
+                  @change="setSelectedKeys(getRecordFilterKeys($event))"
+                  @press-enter="confirm()"
+                >
+                  <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+                </AInput>
+                <div class="medical-record-filter-actions">
+                  <AButton size="small" class="medical-record-filter-reset" @click="clearRecordFilter(clearFilters, confirm)">Đặt lại</AButton>
+                  <AButton type="primary" size="small" class="medical-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+                </div>
+              </div>
+            </template>
+            <template #customFilterIcon="{ filtered }">
+              <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            </template>
+            <template #emptyText>
+              <div class="py-8 text-center">
+                <FileHeart class="mx-auto h-9 w-9 text-slate-300" />
+                <p class="mt-3 font-bold text-slate-800">Không có hồ sơ bệnh án phù hợp</p>
+                <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc từ khóa tìm kiếm trong từng cột.</p>
+              </div>
+            </template>
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'code'">
+                <span class="font-bold text-slate-950">{{ recordCode(record) }}</span>
+              </template>
+              <template v-else-if="column.key === 'diagnosis'">
+                <span class="line-clamp-2 max-w-sm text-[13px] font-semibold leading-5 text-slate-800" :title="recordDiagnosis(record)">
+                  {{ recordDiagnosis(record) }}
+                </span>
+              </template>
+              <template v-else-if="column.key === 'diagnosisCode'">
+                <span class="font-mono text-xs font-semibold text-slate-600">{{ record.diagnosisCode || '-' }}</span>
+              </template>
+              <template v-else-if="column.key === 'createdAt'">
+                <span class="whitespace-nowrap text-[13px] font-medium text-slate-500">{{ formatDate(record.createdAt) }}</span>
+              </template>
+              <template v-else-if="column.key === 'followUpDate'">
+                <ATag v-if="record.followUpDate" :bordered="false" class="medical-follow-tag">{{ formatDate(record.followUpDate) }}</ATag>
+                <span v-else class="text-xs font-semibold text-slate-400">Chưa có</span>
+              </template>
+              <template v-else-if="column.key === 'status'">
+                <ATag :bordered="false" :class="['medical-status-tag', statusClass(record.status)]">
+                  <span class="medical-status-dot"></span>
+                  {{ statusLabel(record.status) }}
+                </ATag>
+              </template>
+              <template v-else-if="column.key === 'actions'">
+                <div class="medical-record-actions">
+                  <button type="button" class="medical-record-action-button medical-record-action-primary" title="Xem chi tiết bệnh án" @click="openDetails(record)">
+                    <Eye class="h-4 w-4" />
+                    <span>Chi tiết</span>
+                  </button>
+                  <button type="button" class="medical-record-action-button medical-record-action-muted" title="In hồ sơ bệnh án" @click="printMedicalRecord(record)">
+                    <Printer class="h-4 w-4" />
+                    <span>In</span>
+                  </button>
+                </div>
+              </template>
+            </template>
+          </ATable>
         </div>
 
         <!-- Empty state -->
@@ -565,17 +491,6 @@
                     <p class="mt-0.5 font-mono font-bold text-slate-800">{{ activePrescription.prescriptionCode || 'Chưa cập nhật' }}</p>
                   </div>
                   <div class="flex items-center gap-2">
-                    <BaseButton
-                      variant="outline"
-                      size="sm"
-                      class="border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-bold inline-flex items-center gap-1.5 h-9"
-                      @click="printPrescription(activePrescription)"
-                    >
-                      <template #icon>
-                        <Printer class="h-4 w-4 text-slate-500" />
-                      </template>
-                      In đơn thuốc
-                    </BaseButton>
                     <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
                       {{ activePrescription.status || 'Chờ phát thuốc' }}
                     </span>
@@ -723,11 +638,11 @@
         <div class="mb-5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin lượt khám</h2>
           <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã lịch hẹn:</span> <span class="font-semibold text-slate-800 font-mono">{{ appointmentForRecord(recordToPrint)?.appointmentId || recordToPrint.appointmentId || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Mã lịch hẹn:</span> <span class="font-semibold text-slate-800 font-mono">{{ printAppointmentId(recordToPrint) }}</span></div>
             <div><span class="font-bold text-slate-500">Ngày giờ khám:</span> <span class="font-semibold text-slate-800">{{ appointmentTimeLabel(recordToPrint) }}</span></div>
-            <div><span class="font-bold text-slate-500">Chuyên khoa:</span> <span class="font-semibold text-slate-800">{{ appointmentForRecord(recordToPrint)?.specialtyName || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Số thứ tự:</span> <span class="font-semibold text-slate-800">{{ appointmentForRecord(recordToPrint)?.queueNumber || 'Chưa có thông tin' }}</span></div>
-            <div class="col-span-2"><span class="font-bold text-slate-500">Lý do khám:</span> <span class="font-semibold text-slate-800">{{ appointmentForRecord(recordToPrint)?.reason || 'Chưa ghi nhận' }}</span></div>
+            <div><span class="font-bold text-slate-500">Chuyên khoa:</span> <span class="font-semibold text-slate-800">{{ printAppointmentSpecialty(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Số thứ tự:</span> <span class="font-semibold text-slate-800">{{ printQueueNumber(recordToPrint) }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Lý do khám:</span> <span class="font-semibold text-slate-800">{{ printChiefComplaint(recordToPrint) }}</span></div>
           </div>
         </div>
 
@@ -741,6 +656,22 @@
             <div><span class="font-bold text-slate-500">Cập nhật lần cuối:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(recordToPrint.updatedAt) }}</span></div>
             <div v-if="recordToPrint.completedAt"><span class="font-bold text-slate-500">Hoàn tất lúc:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(recordToPrint.completedAt) }}</span></div>
             <div><span class="font-bold text-slate-500">Trạng thái:</span> <span class="font-semibold text-slate-800">{{ statusLabel(recordToPrint.status) }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Triệu chứng:</span> <span class="font-semibold text-slate-800">{{ printSymptoms(recordToPrint) }}</span></div>
+          </div>
+        </div>
+
+        <!-- Vital Signs -->
+        <div class="mb-5 print-section">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Sinh hiệu</h2>
+          <div v-if="printVitalItems.length" class="grid grid-cols-4 gap-2 text-xs">
+            <div v-for="item in printVitalItems" :key="item.label" class="print-field rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+              <p class="font-bold text-slate-500">{{ item.label }}</p>
+              <p class="mt-1 font-bold text-slate-900">{{ item.value }}</p>
+            </div>
+          </div>
+          <p v-else class="text-xs italic text-slate-500">Chưa ghi nhận sinh hiệu cho lượt khám này.</p>
+          <div v-if="printVitalNote" class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">
+            <span class="font-bold">Ghi chú điều dưỡng:</span> {{ printVitalNote }}
           </div>
         </div>
 
@@ -749,6 +680,7 @@
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Chẩn đoán</h2>
           <div class="space-y-2 text-xs">
             <div><span class="font-bold text-slate-500">Mã ICD:</span> <span class="font-mono bg-slate-50 px-1.5 py-0.5 rounded font-bold">{{ recordToPrint.diagnosisCode || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Chuyên khoa ICD:</span> <span class="font-semibold text-slate-800">{{ recordToPrint.diagnosisSpecialty || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Chẩn đoán bệnh:</span> <span class="font-semibold text-slate-800 block mt-0.5 pl-3 border-l-2 border-slate-200">{{ recordToPrint.diagnosisText || recordToPrint.diagnosis || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Ghi chú & Dặn dò:</span> <span class="font-semibold text-slate-700 block mt-0.5 pl-3 border-l-2 border-slate-200 whitespace-pre-line">{{ recordToPrint.doctorNote || recordToPrint.doctorNotes || 'Chưa có ghi chú' }}</span></div>
           </div>
@@ -763,8 +695,35 @@
           </div>
         </div>
 
+        <!-- Clinical Orders -->
+        <div class="mb-6 print-section">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Cận lâm sàng</h2>
+          <table v-if="printClinicalOrders.length" class="min-w-full border border-slate-200 text-xs">
+            <thead class="bg-slate-50 font-bold text-slate-600 text-left">
+              <tr>
+                <th class="px-2 py-1.5 border-r border-slate-200">Chỉ định</th>
+                <th class="px-2 py-1.5 border-r border-slate-200">Kết quả</th>
+                <th class="px-2 py-1.5 border-r border-slate-200">Kết luận</th>
+                <th class="px-2 py-1.5">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-for="order in printClinicalOrders" :key="order.id || order.clinicalOrderCode">
+                <td class="px-2 py-1.5 border-r border-slate-200">
+                  <p class="font-bold text-slate-800">{{ order.orderName || 'Chưa cập nhật' }}</p>
+                  <p class="text-slate-500">{{ order.clinicalOrderCode || order.orderType || '' }}</p>
+                </td>
+                <td class="px-2 py-1.5 border-r border-slate-200">{{ clinicalOrderResult(order) }}</td>
+                <td class="px-2 py-1.5 border-r border-slate-200">{{ order.conclusion || 'Chưa có kết luận' }}</td>
+                <td class="px-2 py-1.5 font-semibold">{{ statusLabel(order.status) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="text-xs italic text-slate-500">Không có chỉ định cận lâm sàng trong bệnh án này.</p>
+        </div>
+
         <!-- Prescription Info -->
-        <div class="mb-6">
+        <div class="mb-6 print-section">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Đơn thuốc</h2>
           <template v-if="activePrescription">
             <div class="grid grid-cols-2 gap-y-2 text-xs mb-3">
@@ -780,16 +739,18 @@
                   <th class="px-2 py-1.5 border-r border-slate-200">Tên thuốc</th>
                   <th class="px-2 py-1.5 border-r border-slate-200 w-20 text-center">Số lượng</th>
                   <th class="px-2 py-1.5 border-r border-slate-200">Liều dùng</th>
+                  <th class="px-2 py-1.5 border-r border-slate-200 w-20 text-center">Số ngày</th>
                   <th class="px-2 py-1.5">Hướng dẫn</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200 bg-white">
                 <tr v-for="(item, index) in prescriptionItems(activePrescription)" :key="item.id || index">
                   <td class="px-2 py-1.5 border-r border-slate-200 text-center font-medium">{{ index + 1 }}</td>
-                  <td class="px-2 py-1.5 border-r border-slate-200 font-bold text-slate-800">{{ item.medicineNameSnapshot || item.medicineName || 'Chưa cập nhật' }}</td>
-                  <td class="px-2 py-1.5 border-r border-slate-200 text-center font-bold">{{ item.quantity || '-' }} {{ item.unitSnapshot || '' }}</td>
-                  <td class="px-2 py-1.5 border-r border-slate-200 font-medium">{{ item.dosage || 'Chưa cập nhật' }} · {{ item.frequency || 'Chưa cập nhật' }}</td>
-                  <td class="px-2 py-1.5 font-medium">{{ item.usageInstruction || 'Theo dặn dò của bác sĩ' }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 font-bold text-slate-800">{{ prescriptionItemMedicineName(item) }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 text-center font-bold">{{ prescriptionItemQuantity(item) }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 font-medium">{{ prescriptionItemDosage(item) }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 text-center font-medium">{{ prescriptionItemDuration(item) }}</td>
+                  <td class="px-2 py-1.5 font-medium">{{ prescriptionItemInstruction(item) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -801,7 +762,7 @@
         </div>
 
         <!-- Billing Info -->
-        <div class="mb-6">
+        <div class="mb-6 print-section">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Viện phí</h2>
           <template v-if="activeInvoice">
             <div class="grid grid-cols-2 gap-y-2 text-xs">
@@ -810,7 +771,7 @@
               <div><span class="font-bold text-slate-500">Phí khám:</span> <span class="font-semibold text-slate-800">{{ formatCurrency(activeInvoice.examinationFee || activeInvoice.examFee) }}</span></div>
               <div><span class="font-bold text-slate-500">Tiền thuốc:</span> <span class="font-semibold text-slate-800">{{ formatCurrency(activeInvoice.medicineTotal) }}</span></div>
               <div><span class="font-bold text-slate-500">Tổng cộng:</span> <span class="font-bold text-slate-900">{{ formatCurrency(activeInvoice.totalAmount || activeInvoice.amount) }}</span></div>
-              <div><span class="font-bold text-slate-500">Ngày thanh toán:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(activeInvoice.paidAt || activeInvoice.createdAt) }}</span></div>
+              <div><span class="font-bold text-slate-500">{{ isPaidInvoice(activeInvoice.status) ? 'Ngày thanh toán:' : 'Ngày lập hóa đơn:' }}</span> <span class="font-semibold text-slate-800">{{ formatDateTime(activeInvoice.paidAt || activeInvoice.createdAt) }}</span></div>
             </div>
           </template>
           <p v-else class="text-xs italic text-slate-500">Chưa có thông tin viện phí liên quan.</p>
@@ -834,114 +795,15 @@
       </div>
     </div>
 
-    <!-- Print Area for Prescription -->
-    <div v-if="prescriptionToPrint" class="print-area">
-      <div class="print-container p-6 bg-white max-w-2xl mx-auto text-slate-800">
-        <!-- Logo and System Name -->
-        <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
-          <img :src="logoUrl" alt="Logo MedicareDNU" class="h-8 w-auto object-contain" />
-          <div class="text-right text-xs text-slate-500">
-            <p>Hệ thống quản lý phòng khám MedicareDNU</p>
-            <p>Thời gian in: {{ currentPrintDateTime() }}</p>
-          </div>
-        </div>
-
-        <!-- Document Title -->
-        <div class="text-center mb-6">
-          <h1 class="text-xl font-bold text-slate-900 tracking-wide uppercase">Đơn thuốc của bệnh nhân</h1>
-          <p class="text-xs text-slate-500 mt-1 font-mono">Mã đơn thuốc: {{ prescriptionToPrint.prescriptionCode || 'DT' + String(prescriptionToPrint.id).padStart(3, '0') }}</p>
-        </div>
-
-        <!-- Patient Info -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin bệnh nhân</h2>
-          <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.patientCode || patientDetail?.patientIdCode || prescriptionToPrint.patientCode || prescriptionToPrint.patientIdCode || patientDetail?.id || prescriptionToPrint.patientId || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Họ và tên:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.fullName || authStore.user?.fullName || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Ngày sinh:</span> <span class="font-semibold text-slate-800">{{ formatDate(patientDetail?.dateOfBirth) }}</span></div>
-            <div><span class="font-bold text-slate-500">Giới tính:</span> <span class="font-semibold text-slate-800">{{ genderLabel(patientDetail?.gender) }}</span></div>
-            <div class="col-span-2"><span class="font-bold text-slate-500">Số điện thoại:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.phoneNumber || patientDetail?.phone || 'Chưa có thông tin' }}</span></div>
-          </div>
-        </div>
-
-        <!-- Prescription Info -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin đơn thuốc</h2>
-          <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh án:</span> <span class="font-semibold text-slate-800 font-mono">{{ prescriptionToPrint.medicalRecordCode || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Bác sĩ kê đơn:</span> <span class="font-semibold text-slate-800">{{ associatedDoctorNameForPrescription(prescriptionToPrint) || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Ngày kê đơn:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(prescriptionToPrint.createdAt) }}</span></div>
-            <div><span class="font-bold text-slate-500">Trạng thái xử lý:</span> <span class="font-semibold text-slate-800">{{ statusLabel(prescriptionToPrint.status) }}</span></div>
-          </div>
-        </div>
-
-        <!-- Medicines List Table -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Danh mục thuốc</h2>
-          <table v-if="(prescriptionToPrint.items || prescriptionToPrint.prescriptionItems || []).length" class="min-w-full border border-slate-200 text-xs mb-3">
-            <thead class="bg-slate-50 font-bold text-slate-600 text-left border-b border-slate-200">
-              <tr>
-                <th class="px-2 py-1.5 border-r border-slate-200 w-10 text-center">STT</th>
-                <th class="px-2 py-1.5 border-r border-slate-200">Tên thuốc</th>
-                <th class="px-2 py-1.5 border-r border-slate-200 w-20 text-center">Số lượng</th>
-                <th class="px-2 py-1.5 border-r border-slate-200">Liều lượng</th>
-                <th class="px-2 py-1.5">Cách dùng / Hướng dẫn</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 bg-white">
-              <tr v-for="(item, index) in (prescriptionToPrint.items || prescriptionToPrint.prescriptionItems)" :key="item.id">
-                <td class="px-2 py-1.5 border-r border-slate-200 text-center font-medium">{{ index + 1 }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 font-bold text-slate-800">{{ item.medicineNameSnapshot || item.medicineName }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 text-center font-bold">{{ item.quantity }} {{ item.unitSnapshot || 'Viên' }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 font-medium">{{ item.dosage || 'Chỉ định' }} · {{ item.frequency || 'Chưa cập nhật' }}</td>
-                <td class="px-2 py-1.5 font-medium">{{ item.usageInstruction || 'Theo dặn dò' }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-else-if="prescriptionToPrint.note" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-semibold">
-            {{ prescriptionToPrint.note }}
-          </div>
-          <div v-else class="text-xs text-slate-500 italic pl-3">Chưa có thông tin danh sách thuốc chi tiết</div>
-        </div>
-
-        <!-- Footnote / Safety notes -->
-        <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-[10px] text-blue-800 leading-relaxed mb-6">
-          <span class="font-bold">Lưu ý:</span> Uống thuốc đúng giờ, đúng liều theo chỉ dẫn. Không tự ý ngưng thuốc hoặc thay đổi liều lượng thuốc được bác sĩ kê.
-        </div>
-
-        <!-- Signature Block -->
-        <div class="mt-8 pt-6 border-t border-slate-200 grid grid-cols-3 text-center text-xs gap-4">
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Bệnh nhân</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800">{{ patientDetail?.fullName || authStore.user?.fullName || '' }}</p>
-          </div>
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Dược sĩ</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800"></p>
-          </div>
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Bác sĩ kê đơn</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800">{{ associatedDoctorNameForPrescription(prescriptionToPrint) }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import {
   CalendarClock,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ClipboardList,
   CreditCard,
   Eye,
@@ -956,7 +818,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
@@ -992,7 +854,27 @@ const activeInvoice = ref<Invoice | null>(null)
 
 // Print State
 const recordToPrint = ref<MedicalRecord | null>(null)
-const prescriptionToPrint = ref<Prescription | null>(null)
+const printAppointment = ref<Record<string, any> | null>(null)
+const printVisit = ref<Record<string, any> | null>(null)
+const printClinicalOrders = ref<Array<Record<string, any>>>([])
+const printPrescriptions = ref<Prescription[]>([])
+
+const printVitalSigns = computed(() => parseVitalSigns(recordToPrint.value?.vitalSignsJson || printVisit.value?.vitalSignsJson))
+const printVitalItems = computed(() => {
+  const vitals = printVitalSigns.value
+  const items = [
+    { label: 'Nhiệt độ', value: vitalDisplay(vitals, ['temperature', 'Temperature'], '°C') },
+    { label: 'Huyết áp', value: vitalDisplay(vitals, ['bloodPressure', 'BloodPressure']) },
+    { label: 'Mạch', value: vitalDisplay(vitals, ['heartRate', 'HeartRate'], 'lần/phút') },
+    { label: 'Nhịp thở', value: vitalDisplay(vitals, ['respiratoryRate', 'RespiratoryRate'], 'lần/phút') },
+    { label: 'SpO2', value: vitalDisplay(vitals, ['spo2', 'Spo2', 'spO2', 'SpO2', 'SpO₂'], '%') },
+    { label: 'Cân nặng', value: vitalDisplay(vitals, ['weight', 'Weight'], 'kg') },
+    { label: 'Chiều cao', value: vitalDisplay(vitals, ['height', 'Height'], 'cm') },
+    { label: 'BMI', value: vitalBmiDisplay(vitals) },
+  ]
+  return items.filter(item => item.value !== '')
+})
+const printVitalNote = computed(() => String(readFirst(printVitalSigns.value, 'note', 'Note') || '').trim())
 
 const tabs = [
   { key: 'overview', label: 'Tổng quan' },
@@ -1098,6 +980,79 @@ const paginatedRecords = computed(() => {
   return filteredRecords.value.slice(start, end)
 })
 
+const medicalRecordTableColumns = [
+  {
+    title: 'Mã BA',
+    key: 'code',
+    width: 150,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('code'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordCode(a).localeCompare(recordCode(b), 'vi'),
+  },
+  {
+    title: 'Chẩn đoán',
+    key: 'diagnosis',
+    minWidth: 260,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('diagnosis'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordDiagnosis(a).localeCompare(recordDiagnosis(b), 'vi'),
+  },
+  {
+    title: 'Mã ICD',
+    dataIndex: 'diagnosisCode',
+    key: 'diagnosisCode',
+    width: 170,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('diagnosisCode'),
+  },
+  {
+    title: 'Ngày tạo',
+    dataIndex: 'createdAt',
+    key: 'createdAt',
+    width: 170,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('createdAt'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.createdAt) - recordTimestamp(b.createdAt),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Tái khám',
+    dataIndex: 'followUpDate',
+    key: 'followUpDate',
+    width: 170,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('followUpDate'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.followUpDate) - recordTimestamp(b.followUpDate),
+  },
+  {
+    title: 'Trạng thái',
+    dataIndex: 'status',
+    key: 'status',
+    width: 210,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('status'),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 180,
+    align: 'right' as const,
+    fixed: 'right' as const,
+  },
+]
+
+const medicalRecordPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `Hiển thị ${range[0]} - ${range[1]} trên ${total} kết quả`,
+  locale: { items_per_page: ' / trang' },
+}))
+
 const followUpStatus = computed(() => {
   if (!selectedRecord.value?.followUpDate) return 'NONE'
   const followDate = new Date(selectedRecord.value.followUpDate)
@@ -1148,7 +1103,7 @@ function uniqueAppointments(list: Appointment[]) {
   })
 }
 
-function recordIdentity(record: MedicalRecord) {
+function recordIdentity(record: MedicalRecord | Record<string, any>) {
   return String(
     record.medicalRecordId ||
     record.recordId ||
@@ -1157,6 +1112,60 @@ function recordIdentity(record: MedicalRecord) {
     (record.visitId ? `visit-${record.visitId}` : '') ||
     `${record.patientId}-${record.createdAt}-${record.diagnosisCode}-${record.diagnosisText}`,
   )
+}
+
+function recordCode(record: MedicalRecord | Record<string, any>) {
+  return String(record.medicalRecordCode || record.medicalRecordIdCode || record.recordIdCode || record.recordId || record.medicalRecordId || 'Chưa cập nhật')
+}
+
+function recordDiagnosis(record: MedicalRecord | Record<string, any>) {
+  return String(record.diagnosisText || record.diagnosis || 'Chưa cập nhật chẩn đoán')
+}
+
+function recordTimestamp(value?: string | null) {
+  if (!value) return 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
+function recordSearchField(record: MedicalRecord | Record<string, any>, key: string) {
+  if (key === 'code') return recordCode(record)
+  if (key === 'diagnosis') return recordDiagnosis(record)
+  if (key === 'diagnosisCode') return record.diagnosisCode || '-'
+  if (key === 'createdAt') return formatDate(record.createdAt)
+  if (key === 'followUpDate') return record.followUpDate ? formatDate(record.followUpDate) : 'Chưa có'
+  if (key === 'status') return statusLabel(record.status)
+  return ''
+}
+
+function recordColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: MedicalRecord | Record<string, any>) =>
+    normalizeSearchText(recordSearchField(record, key)).includes(normalizeSearchText(filterValue))
+}
+
+function normalizeSearchText(valueToNormalize: unknown) {
+  return String(valueToNormalize || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+
+function getRecordFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearRecordFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleMedicalRecordTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
 }
 
 async function loadData() {
@@ -1214,18 +1223,19 @@ async function loadData() {
   }
 }
 
-function openDetails(record: MedicalRecord) {
-  selectedRecord.value = record
+function openDetails(record: MedicalRecord | Record<string, any>) {
+  const medicalRecord = record as MedicalRecord
+  selectedRecord.value = medicalRecord
   currentTab.value = 'overview'
   activePrescription.value = null
   activeInvoice.value = null
   drawerOpen.value = true
 
-  const recordId = record.medicalRecordId || record.recordId || record.id
+  const recordId = medicalRecord.medicalRecordId || medicalRecord.recordId || medicalRecord.id
   if (recordId) {
     medicalRecordApi.getCompleteMedicalRecord(recordId)
       .then((completeRecord) => {
-        selectedRecord.value = { ...record, ...(completeRecord as Record<string, any>) }
+        selectedRecord.value = { ...medicalRecord, ...(completeRecord as Record<string, any>) }
       })
       .catch((err) => {
         if ((err as any)?.response?.status === 403) {
@@ -1238,8 +1248,8 @@ function openDetails(record: MedicalRecord) {
   }
 
   // Proactively pre-load Prescription and Billing data for this record
-  void loadPrescriptionData(record)
-  void loadBillingData(record)
+  void loadPrescriptionData(medicalRecord)
+  void loadBillingData(medicalRecord)
 }
 
 function closeDrawer() {
@@ -1265,21 +1275,17 @@ async function loadPrescriptionData(record: MedicalRecord) {
         : Promise.resolve([] as Prescription[]),
     ])
 
-    const n2List = timeline.prescriptions || []
-    const combined = [...n2List, ...n3List]
-    
-    // Find matching prescription
+    const n2List = [...(timeline.prescriptions || []), ...printPrescriptions.value]
+
     const recordCode = record.medicalRecordCode || record.medicalRecordIdCode || record.recordIdCode || record.recordId
     const recordId = record.medicalRecordId || record.id
     const appointmentId = Number(record.appointmentId || appointmentForRecord(record)?.appointmentId || 0)
 
-    const match = combined.find(p =>
-      (recordCode && [p.medicalRecordCode, p.medicalRecordIdCode].some(code => String(code || '') === String(recordCode))) ||
-      (recordId && Number(p.medicalRecordId) === Number(recordId)) ||
-      (appointmentId && Number(p.appointmentId) === appointmentId)
-    )
-    if (match) {
-      activePrescription.value = match
+    const n2Match = n2List.find(p => prescriptionMatchesRecord(p, recordCode, recordId, appointmentId))
+    const n3Match = n3List.find(p => prescriptionMatchesRecord(p, recordCode, recordId, appointmentId))
+
+    if (n2Match || n3Match) {
+      activePrescription.value = mergePrescriptionForPrint(n2Match, n3Match)
     }
   } catch (err) {
     console.error('Failed to load prescription info', err)
@@ -1299,10 +1305,24 @@ async function loadBillingData(record: MedicalRecord) {
         throw err
       })
       : []
-    
-    // Match by appointmentId
     const appointmentId = Number(record.appointmentId || appointmentForRecord(record)?.appointmentId || 0)
-    const match = list.find(inv => appointmentId && Number(inv.appointmentId) === appointmentId)
+    const recordId = Number(record.medicalRecordId || record.id || 0)
+    const recordCode = String(record.medicalRecordCode || record.medicalRecordIdCode || record.recordIdCode || record.recordId || '')
+    const prescriptionIds = new Set(
+      [activePrescription.value, ...printPrescriptions.value]
+        .map(p => Number(p?.prescriptionId || p?.id || 0))
+        .filter(id => id > 0),
+    )
+
+    const match = list.find((invoice) => {
+      const raw = invoice as Invoice & Record<string, any>
+      if (appointmentId && Number(raw.appointmentId || raw.AppointmentId) === appointmentId) return true
+      if (recordId && Number(raw.medicalRecordId || raw.MedicalRecordId) === recordId) return true
+      if (recordCode && [raw.medicalRecordCode, raw.MedicalRecordCode, raw.medicalRecordIdCode, raw.MedicalRecordIdCode].some(code => String(code || '') === recordCode)) return true
+      const prescriptionId = Number(raw.prescriptionId || raw.PrescriptionId || 0)
+      return prescriptionId > 0 && prescriptionIds.has(prescriptionId)
+    })
+
     if (match) {
       activeInvoice.value = match
     }
@@ -1332,6 +1352,9 @@ function associatedDoctorNameForPrescription(prescription: Prescription) {
 function appointmentForRecord(record?: MedicalRecord | null) {
   if (!record) return null
   const appointmentId = Number(record.appointmentId || 0)
+  if (printAppointment.value && Number(printAppointment.value.appointmentId) === appointmentId) {
+    return printAppointment.value as Appointment
+  }
   if (appointmentId) {
     const direct = appointments.value.find(appointment => Number(appointment.appointmentId) === appointmentId)
     if (direct) return direct
@@ -1347,41 +1370,215 @@ function appointmentForRecord(record?: MedicalRecord | null) {
 
 function doctorNameForRecord(record?: MedicalRecord | null) {
   if (!record) return ''
-  return getDoctorName(record.doctorId) || appointmentForRecord(record)?.doctorName || ''
+  return record.doctorName || getDoctorName(record.doctorId) || appointmentForRecord(record)?.doctorName || ''
+}
+
+function objectValue(source: unknown, ...keys: string[]) {
+  const data = source as Record<string, any> | null | undefined
+  if (!data) return undefined
+  for (const key of keys) {
+    const value = data[key]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value
+  }
+  return undefined
+}
+
+function printAppointmentId(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'appointmentId', 'AppointmentId')
+    || objectValue(printVisit.value, 'appointmentId', 'AppointmentId')
+    || objectValue(record, 'appointmentId', 'AppointmentId')
+    || 'Chưa có thông tin'
+}
+
+function printAppointmentSpecialty(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || objectValue(record, 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || 'Chưa có thông tin'
+}
+
+function printQueueNumber(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'queueNumber', 'QueueNumber')
+    || objectValue(record, 'queueNumber', 'QueueNumber')
+    || 'Chưa có thông tin'
+}
+
+function printChiefComplaint(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'reason', 'Reason')
+    || objectValue(printVisit.value, 'chiefComplaint', 'ChiefComplaint')
+    || objectValue(record, 'chiefComplaint', 'ChiefComplaint', 'reason', 'Reason')
+    || 'Chưa ghi nhận'
+}
+
+function printSymptoms(record?: MedicalRecord | null) {
+  return objectValue(record, 'symptoms', 'Symptoms')
+    || objectValue(printVisit.value, 'symptoms', 'Symptoms')
+    || 'Chưa ghi nhận'
 }
 
 function appointmentTimeLabel(record?: MedicalRecord | null) {
   const appointment = appointmentForRecord(record)
+  const scheduledAt = objectValue(appointment, 'scheduledAt', 'ScheduledAt')
+    || objectValue(printVisit.value, 'visitDate', 'VisitDate', 'createdAt', 'CreatedAt')
+    || objectValue(record, 'examDate', 'createdAt', 'CreatedAt')
+  if (scheduledAt) return formatDateTime(scheduledAt)
   if (!appointment) return 'Chưa có thông tin'
-  return `${formatDate(appointment.appointmentDate)} · ${appointment.slotTime || '--:--'}`
+  return `${formatDate(objectValue(appointment, 'appointmentDate', 'AppointmentDate'))} · ${objectValue(appointment, 'slotTime', 'SlotTime') || '--:--'}`
 }
 
 function prescriptionItems(prescription?: Prescription | null) {
   return prescription?.items || prescription?.prescriptionItems || []
 }
 
-async function printMedicalRecord(record: MedicalRecord) {
-  const recordId = record.medicalRecordId || record.recordId || record.id
-  recordToPrint.value = record
-  prescriptionToPrint.value = null
+function prescriptionItemMedicineName(item: Record<string, any>) {
+  return String(readFirst(item, 'medicineNameSnapshot', 'MedicineNameSnapshot', 'medicineName', 'MedicineName') || 'Chưa cập nhật')
+}
+
+function prescriptionItemQuantity(item: Record<string, any>) {
+  const quantity = readFirst(item, 'quantity', 'Quantity')
+  const unit = String(readFirst(item, 'unitSnapshot', 'UnitSnapshot', 'unit', 'Unit') || '').trim()
+  return [quantity || '-', unit].filter(Boolean).join(' ')
+}
+
+function prescriptionItemDosage(item: Record<string, any>) {
+  const dosage = String(readFirst(item, 'dosage', 'Dosage') || '').trim()
+  const frequency = String(readFirst(item, 'frequency', 'Frequency') || '').trim()
+  return [dosage, frequency].filter(Boolean).join(' · ') || 'Chưa cập nhật'
+}
+
+function prescriptionItemDuration(item: Record<string, any>) {
+  const value = readFirst(item, 'durationDays', 'DurationDays')
+  const days = Number(value)
+  return Number.isFinite(days) && days > 0 ? `${days} ngày` : 'Chưa cập nhật'
+}
+
+function prescriptionItemInstruction(item: Record<string, any>) {
+  return String(readFirst(item, 'usageInstruction', 'UsageInstruction', 'note', 'Note') || '').trim() || 'Theo dặn dò của bác sĩ'
+}
+
+function prescriptionMatchesRecord(
+  prescription: Prescription,
+  recordCode: string | number | undefined,
+  recordId: string | number | undefined,
+  appointmentId: number,
+) {
+  return Boolean(
+    (recordCode && [prescription.medicalRecordCode, prescription.medicalRecordIdCode].some(code => String(code || '') === String(recordCode))) ||
+    (recordId && Number(prescription.medicalRecordId) === Number(recordId)) ||
+    (appointmentId && Number(prescription.appointmentId) === appointmentId),
+  )
+}
+
+function mergePrescriptionForPrint(n2?: Prescription, n3?: Prescription): Prescription {
+  const n2Items = prescriptionItems(n2)
+  const n3Items = prescriptionItems(n3)
+  return {
+    ...(n2 || {}),
+    ...(n3 || {}),
+    items: n3Items.length ? n3Items : n2Items,
+    prescriptionItems: n3Items.length ? n3Items : n2Items,
+    status: n3?.status || n2?.status,
+    note: n3?.note || n2?.note,
+  } as Prescription
+}
+
+function applyCompleteRecordForPrint(baseRecord: MedicalRecord, complete: Record<string, any>) {
+  const patient = complete.patient || complete.Patient
+  const appointment = complete.appointment || complete.Appointment
+  const visit = complete.visit || complete.Visit || {}
+  const medicalRecord = complete.medicalRecord || complete.MedicalRecord || {}
+  const clinicalOrders = complete.clinicalOrders || complete.ClinicalOrders || []
+  const prescriptions = complete.prescriptions || complete.Prescriptions || []
+
+  if (patient) patientDetail.value = { ...(patientDetail.value || {} as Patient), ...patient }
+  printAppointment.value = appointment || null
+  printVisit.value = visit || null
+  printClinicalOrders.value = Array.isArray(clinicalOrders) ? clinicalOrders : []
+  printPrescriptions.value = Array.isArray(prescriptions) ? prescriptions : []
+
+  recordToPrint.value = {
+    ...baseRecord,
+    ...medicalRecord,
+    medicalRecordId: objectValue(medicalRecord, 'medicalRecordId', 'id', 'Id') || baseRecord.medicalRecordId,
+    medicalRecordCode: objectValue(medicalRecord, 'medicalRecordCode', 'MedicalRecordCode') || baseRecord.medicalRecordCode,
+    visitId: objectValue(medicalRecord, 'visitId', 'VisitId') || objectValue(visit, 'id', 'Id', 'visitId', 'VisitId') || baseRecord.visitId,
+    appointmentId: objectValue(visit, 'appointmentId', 'AppointmentId') || objectValue(appointment, 'appointmentId', 'AppointmentId') || baseRecord.appointmentId,
+    doctorId: objectValue(medicalRecord, 'doctorId', 'DoctorId') || objectValue(visit, 'doctorId', 'DoctorId') || objectValue(appointment, 'doctorId', 'DoctorId') || baseRecord.doctorId,
+    doctorName: objectValue(visit, 'doctorName', 'DoctorName') || objectValue(appointment, 'doctorNameSnapshot', 'DoctorNameSnapshot', 'doctorName', 'DoctorName') || baseRecord.doctorName,
+    chiefComplaint: objectValue(visit, 'chiefComplaint', 'ChiefComplaint') || objectValue(appointment, 'reason', 'Reason') || baseRecord.chiefComplaint,
+    symptoms: objectValue(visit, 'symptoms', 'Symptoms') || objectValue(medicalRecord, 'symptoms', 'Symptoms') || baseRecord.symptoms,
+    vitalSignsJson: objectValue(visit, 'vitalSignsJson', 'VitalSignsJson') || baseRecord.vitalSignsJson,
+    diagnosisCode: objectValue(medicalRecord, 'diagnosisCode', 'DiagnosisCode') || baseRecord.diagnosisCode,
+    diagnosisSpecialty: objectValue(medicalRecord, 'diagnosisSpecialty', 'DiagnosisSpecialty') || baseRecord.diagnosisSpecialty,
+    diagnosisText: objectValue(medicalRecord, 'diagnosisText', 'DiagnosisText') || baseRecord.diagnosisText,
+    doctorNote: objectValue(medicalRecord, 'doctorNote', 'DoctorNote') || baseRecord.doctorNote,
+    treatmentPlan: objectValue(medicalRecord, 'treatmentPlan', 'TreatmentPlan') || baseRecord.treatmentPlan,
+    followUpDate: objectValue(medicalRecord, 'followUpDate', 'FollowUpDate') || baseRecord.followUpDate,
+    createdAt: objectValue(medicalRecord, 'createdAt', 'CreatedAt') || baseRecord.createdAt,
+    updatedAt: objectValue(medicalRecord, 'updatedAt', 'UpdatedAt') || baseRecord.updatedAt,
+    completedAt: objectValue(medicalRecord, 'completedAt', 'CompletedAt') || objectValue(visit, 'completedAt', 'CompletedAt') || baseRecord.completedAt,
+    specialtyName: objectValue(appointment, 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot') || objectValue(baseRecord, 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot'),
+    queueNumber: objectValue(appointment, 'queueNumber', 'QueueNumber') || objectValue(baseRecord, 'queueNumber', 'QueueNumber'),
+  }
+}
+
+function parseVitalSigns(value: unknown): Record<string, any> {
+  if (!value) return {}
+  if (typeof value === 'object') return value as Record<string, any>
+  try {
+    const parsed = JSON.parse(String(value))
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : {}
+  } catch {
+    return {}
+  }
+}
+
+function readFirst(source: Record<string, any>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value
+  }
+  return undefined
+}
+
+function vitalDisplay(source: Record<string, any>, keys: string[], unit = '') {
+  const value = readFirst(source, ...keys)
+  if (value === undefined) return ''
+  return `${value}${unit ? ` ${unit}` : ''}`
+}
+
+function vitalBmiDisplay(source: Record<string, any>) {
+  const weight = Number(readFirst(source, 'weight', 'Weight'))
+  const height = Number(readFirst(source, 'height', 'Height'))
+  if (!Number.isFinite(weight) || !Number.isFinite(height) || weight <= 0 || height <= 0) return ''
+  const heightMeters = height / 100
+  return `${(weight / (heightMeters * heightMeters)).toFixed(1)} kg/m²`
+}
+
+function clinicalOrderResult(order: Record<string, any>) {
+  const resultText = String(order.resultText || '').trim()
+  if (resultText) return resultText
+  const value = String(order.resultValue || '').trim()
+  const unit = String(order.resultUnit || '').trim()
+  return [value, unit].filter(Boolean).join(' ') || 'Chưa có kết quả'
+}
+
+async function printMedicalRecord(record: MedicalRecord | Record<string, any>) {
+  const medicalRecord = record as MedicalRecord
+  const recordId = medicalRecord.medicalRecordId || medicalRecord.recordId || medicalRecord.id
+  recordToPrint.value = null
+  printAppointment.value = null
+  printVisit.value = null
+  printClinicalOrders.value = []
+  printPrescriptions.value = []
   toast.title = 'In hồ sơ bệnh án'
-  toast.message = 'Đang chuẩn bị bản in...'
+  toast.message = 'Đang đồng bộ bệnh án, đơn thuốc và viện phí...'
   toast.type = 'success'
   toast.show = true
+
   if (recordId) {
     try {
-      const html = await medicalRecordApi.exportMedicalRecordHtml(recordId)
-      if (html.trim()) {
-        const printWindow = window.open('', '_blank')
-        if (printWindow) {
-          printWindow.document.open()
-          printWindow.document.write(html)
-          printWindow.document.close()
-          printWindow.focus()
-          setTimeout(() => printWindow.print(), 300)
-          return
-        }
-      }
+      const complete = await medicalRecordApi.getCompleteMedicalRecord(recordId)
+      applyCompleteRecordForPrint(medicalRecord, complete)
     } catch (err) {
       const status = (err as any)?.response?.status
       if (status === 403) {
@@ -1391,52 +1588,25 @@ async function printMedicalRecord(record: MedicalRecord) {
         toast.show = true
         return
       }
-      if (status !== 404) console.error('Failed to export medical record HTML', err)
+      if (status !== 404) console.error('Failed to load complete medical record', err)
+      recordToPrint.value = medicalRecord
     }
+  } else {
+    recordToPrint.value = medicalRecord
   }
-  await Promise.all([
-    loadPrescriptionData(record),
-    loadBillingData(record),
-  ])
+
+  await loadPrescriptionData(recordToPrint.value || medicalRecord)
+
+  if (!activePrescription.value && printPrescriptions.value.length) {
+    activePrescription.value = printPrescriptions.value[0]
+  }
+
+  await loadBillingData(recordToPrint.value || medicalRecord)
+
   await nextTick()
   setTimeout(() => {
     window.print()
   }, 300)
-}
-
-async function printPrescription(prescription: Prescription) {
-  prescriptionToPrint.value = prescription
-  recordToPrint.value = null
-  toast.title = 'In đơn thuốc'
-  toast.message = 'Đang chuẩn bị bản in...'
-  toast.type = 'success'
-  toast.show = true
-  await nextTick()
-  setTimeout(() => {
-    window.print()
-  }, 300)
-}
-
-function triggerPrint() {
-  if (selectedRecord.value) {
-    printMedicalRecord(selectedRecord.value)
-    return
-  }
-  if (medicalRecords.value.length === 1) {
-    printMedicalRecord(medicalRecords.value[0])
-    return
-  }
-  if (medicalRecords.value.length === 0) {
-    toast.title = 'In hồ sơ bệnh án'
-    toast.message = 'Không có hồ sơ bệnh án để in'
-    toast.type = 'error'
-    toast.show = true
-    return
-  }
-  toast.title = 'In hồ sơ bệnh án'
-  toast.message = 'Vui lòng chọn hồ sơ bệnh án cần in'
-  toast.type = 'error'
-  toast.show = true
 }
 
 // Helpers
@@ -1498,16 +1668,22 @@ function statusClass(status?: string) {
 
 function invoiceStatusLabel(status?: string) {
   const s = String(status || '').toLowerCase()
-  if (s.includes('paid') || s.includes('thanh toán')) return 'Đã thanh toán'
+  if (isPaidInvoice(status)) return 'Đã thanh toán'
   if (s.includes('cancel') || s.includes('hủy')) return 'Đã hủy'
   return 'Chưa thanh toán'
 }
 
 function invoiceStatusClass(status?: string) {
   const s = String(status || '').toLowerCase()
-  if (s.includes('paid') || s.includes('thanh toán')) return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+  if (isPaidInvoice(status)) return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
   if (s.includes('cancel') || s.includes('hủy')) return 'bg-rose-50 text-rose-700 border border-rose-100'
   return 'bg-amber-50 text-amber-700 border border-amber-100'
+}
+
+function isPaidInvoice(status?: string) {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (!normalized || normalized.includes('unpaid') || normalized.includes('chưa thanh toán') || normalized.includes('chua thanh toan')) return false
+  return normalized === 'paid' || normalized.includes('đã thanh toán') || normalized.includes('da thanh toan')
 }
 </script>
 
@@ -1518,6 +1694,150 @@ function invoiceStatusClass(status?: string) {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.medical-record-table-shell {
+  overflow: hidden;
+}
+
+.medical-record-table-shell :deep(.ant-table) {
+  color: #334155;
+  font-size: 14px;
+}
+
+.medical-record-table-shell :deep(.ant-table-thead > tr > th) {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 16px 20px;
+  text-transform: uppercase;
+}
+
+.medical-record-table-shell :deep(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 18px 20px;
+  vertical-align: middle;
+}
+
+.medical-record-table-shell :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f8fafc;
+}
+
+.medical-record-table-shell :deep(.ant-table-cell-fix-right) {
+  background: #fff;
+}
+
+.medical-record-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
+  background: #f8fafc;
+}
+
+.medical-record-table-shell :deep(.ant-pagination) {
+  border-top: 1px solid #f1f5f9;
+  margin: 0;
+  padding: 16px;
+}
+
+.medical-record-filter {
+  width: 260px;
+  padding: 12px;
+}
+
+.medical-record-filter-title {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.medical-record-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.medical-record-filter-reset {
+  border-color: #e2e8f0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.medical-record-filter-submit {
+  background: #0F52BA;
+  border-color: #0F52BA;
+  font-weight: 700;
+}
+
+.medical-follow-tag,
+.medical-status-tag {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  line-height: 1;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.medical-follow-tag {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.medical-status-dot {
+  background: currentColor;
+  border-radius: 999px;
+  height: 7px;
+  width: 7px;
+}
+
+.medical-record-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.medical-record-action-button {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  height: 36px;
+  justify-content: center;
+  padding: 0 14px;
+  transition: background .2s, border-color .2s, color .2s;
+}
+
+.medical-record-action-primary {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #1d4ed8;
+}
+
+.medical-record-action-primary:hover {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #0F52BA;
+}
+
+.medical-record-action-muted {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.medical-record-action-muted:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
 </style>
 
 <style>
@@ -1527,6 +1847,15 @@ function invoiceStatusClass(status?: string) {
 }
 
 @media print {
+  html,
+  body {
+    background: white !important;
+    color: #0f172a !important;
+    font-family: Arial, "Helvetica Neue", sans-serif !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
   body * {
     visibility: hidden !important;
   }
@@ -1545,10 +1874,54 @@ function invoiceStatusClass(status?: string) {
     padding: 0 !important;
     margin: 0 !important;
   }
-  
+
+  .print-container {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+  }
+
+  .print-container h1 {
+    letter-spacing: 0 !important;
+  }
+
+  .print-container h2 {
+    color: #0f4c9a !important;
+    letter-spacing: 0 !important;
+  }
+
+  .print-container table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .print-container th,
+  .print-container td {
+    overflow-wrap: anywhere;
+    vertical-align: top !important;
+  }
+
+  .print-container thead {
+    display: table-header-group;
+  }
+
+  .print-container tr,
+  .print-field,
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-container img {
+    max-height: 32px !important;
+  }
+
   @page {
     size: A4;
-    margin: 15mm;
+    margin: 12mm 14mm 14mm;
   }
 }
 </style>

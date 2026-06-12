@@ -73,7 +73,7 @@
         </div>
 
         <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-xs leading-5 text-slate-500">Thông tin này sẽ được lưu vào hồ sơ bệnh nhân N2 và hiển thị trong Hồ sơ cá nhân.</p>
+          <p class="text-xs leading-5 text-slate-500">Thông tin này sẽ được lưu vào hồ sơ bệnh nhân và hiển thị trong Hồ sơ cá nhân.</p>
           <BaseButton type="submit" :loading="saving" class="w-full sm:w-auto">
             <template #icon>
               <Save class="h-4 w-4" />
