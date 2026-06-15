@@ -3,136 +3,10 @@
     <FullscreenLoader :show="loading" />
 
     <div class="max-w-none mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-      
       <header class="px-1">
-        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">Đơn thuốc của tôi</h1>
-       
+        <h1 class="text-[1.75rem] font-bold tracking-normal text-slate-950">Đơn thuốc của tôi</h1>
+        <p class="mt-1.5 text-[13px] font-medium leading-5 text-slate-500">Theo dõi thuốc đã kê, ngày kê đơn và trạng thái xử lý.</p>
       </header>
-
-      <!-- 2. Stats Grid -->
-      <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <!-- Card 1: Tổng đơn thuốc -->
-        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-[0_12px_24px_rgba(15,82,186,0.06)] flex flex-col justify-between min-h-[140px]">
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-slate-700">Tổng đơn thuốc</span>
-            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <Pill class="h-5 w-5" />
-            </span>
-          </div>
-          <div class="mt-4">
-            <p class="text-3xl font-extrabold text-slate-900 tracking-tight">{{ stats.total }}</p>
-            <p class="mt-1 text-xs text-slate-500 font-medium font-semibold">Tất cả đơn thuốc được kê</p>
-          </div>
-        </div>
-
-        <!-- Card 2: Chờ xử lý -->
-        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-amber-200 hover:shadow-[0_12px_24px_rgba(245,158,11,0.06)] flex flex-col justify-between min-h-[140px]">
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-slate-700">Chờ xử lý</span>
-            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-              <Clock class="h-5 w-5" />
-            </span>
-          </div>
-          <div class="mt-4">
-            <p class="text-3xl font-extrabold text-slate-900 tracking-tight">{{ stats.pending }}</p>
-            <p class="mt-1 text-xs text-slate-500 font-medium">Đang chờ nhà thuốc xử lý</p>
-          </div>
-        </div>
-
-        <!-- Card 3: Đã gửi nhà thuốc -->
-        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-200 hover:shadow-[0_12px_24px_rgba(6,182,212,0.06)] flex flex-col justify-between min-h-[140px]">
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-slate-700">Đã gửi nhà thuốc</span>
-            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-              <Send class="h-5 w-5" />
-            </span>
-          </div>
-          <div class="mt-4">
-            <p class="text-3xl font-extrabold text-slate-900 tracking-tight">{{ stats.sent }}</p>
-            <p class="mt-1 text-xs text-slate-500 font-medium">Đã chuyển sang quầy dược</p>
-          </div>
-        </div>
-
-        <!-- Card 4: Đã cấp thuốc / Hoàn tất -->
-        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-200 hover:shadow-[0_12px_24px_rgba(16,185,129,0.06)] flex flex-col justify-between min-h-[140px]">
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-slate-700">Đã cấp / Hoàn tất</span>
-            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-              <CheckCircle2 class="h-5 w-5" />
-            </span>
-          </div>
-          <div class="mt-4">
-            <p class="text-3xl font-extrabold text-slate-900 tracking-tight">{{ stats.completed }}</p>
-            <p class="mt-1 text-xs text-slate-500 font-medium">Đã nhận đủ thuốc dược sĩ bàn giao</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. Bộ lọc nâng cao -->
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 class="font-bold text-slate-800 text-base">Bộ lọc tìm kiếm nâng cao</h3>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 shadow-sm"
-            @click="resetFilters"
-          >
-            <RefreshCw class="h-3.5 w-3.5" />
-            Đặt lại bộ lọc
-          </button>
-        </div>
-
-        <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-          <!-- Từ khóa tìm kiếm -->
-          <label class="relative block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Từ khóa tìm kiếm</span>
-            <span class="relative block">
-              <Search class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                v-model="filters.search"
-                class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                placeholder="Tìm mã đơn, thuốc, ghi chú..."
-              />
-            </span>
-          </label>
-
-          <!-- Trạng thái -->
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái</span>
-            <select
-              v-model="filters.status"
-              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 cursor-pointer"
-            >
-              <option value="ALL">Tất cả</option>
-              <option value="PENDING">Chờ xử lý</option>
-              <option value="SENT_TO_PHARMACY">Đã gửi nhà thuốc</option>
-              <option value="DISPENSED">Đã cấp thuốc</option>
-              <option value="COMPLETED">Hoàn tất</option>
-              <option value="CANCELLED">Đã hủy</option>
-            </select>
-          </label>
-
-          <!-- Ngày kê từ -->
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày kê từ</span>
-            <input
-              v-model="filters.startDate"
-              type="date"
-              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 cursor-pointer"
-            />
-          </label>
-
-          <!-- Ngày kê đến -->
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày kê đến</span>
-            <input
-              v-model="filters.endDate"
-              type="date"
-              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 cursor-pointer"
-            />
-          </label>
-        </div>
-      </div>
 
       <!-- 5. Bảng danh sách đơn thuốc -->
       <div v-if="error" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-start justify-between gap-4">
@@ -152,110 +26,92 @@
         </BaseButton>
       </div>
 
-      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div class="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
-          <span class="text-sm font-semibold text-slate-500">
-            Tổng số {{ filteredPrescriptions.length }} kết quả đơn thuốc
-          </span>
-        </div>
-
-        <div v-if="filteredPrescriptions.length" class="prescription-table-shell">
-          <ATable
-            :columns="prescriptionTableColumns"
-            :data-source="filteredPrescriptions"
-            :pagination="prescriptionPagination"
-            :row-key="prescriptionRowKey"
-            :scroll="{ x: 1080 }"
-            size="middle"
-            @change="handlePrescriptionTableChange"
-          >
-            <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
-              <div class="prescription-filter">
-                <p class="prescription-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
-                <AInput
-                  :value="selectedKeys[0]"
-                  :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
-                  allow-clear
-                  autofocus
-                  @change="setSelectedKeys(getPrescriptionFilterKeys($event))"
-                  @press-enter="confirm()"
+      <div class="prescription-table-shell">
+        <ATable
+          :columns="prescriptionTableColumns"
+          :data-source="filteredPrescriptions"
+          :pagination="prescriptionPagination"
+          :row-key="prescriptionRowKey"
+          size="middle"
+          table-layout="fixed"
+          @change="handlePrescriptionTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="prescription-filter">
+              <p class="prescription-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getPrescriptionFilterKeys($event))"
+                @press-enter="confirm()"
+              >
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="prescription-filter-actions">
+                <AButton size="small" class="prescription-filter-reset" @click="clearPrescriptionFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="prescription-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
+            </div>
+          </template>
+          <template #customFilterIcon="{ filtered, column }">
+            <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <Pill class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-medium text-slate-800">Chưa có đơn thuốc phù hợp</p>
+              <p class="mt-1 text-sm text-slate-500">Thử đổi từ khóa tìm kiếm trong từng cột.</p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'code'">
+              <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ prescriptionCode(record) }}</span>
+            </template>
+            <template v-else-if="column.key === 'createdAt'">
+              <div class="flex items-center gap-2 whitespace-nowrap">
+                <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+                <span class="text-[13px] font-medium text-slate-700">{{ formatDate(record.createdAt) }}</span>
+                <span class="text-xs text-slate-400">{{ formatTime(record.createdAt) }}</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'medicines'">
+              <div
+                :class="['medicine-chip-group', medicineChipDensityClass(prescriptionMedicineNames(record).length)]"
+                :title="allMedicinesText(record)"
+              >
+                <button
+                  v-for="(medicine, index) in prescriptionMedicineNames(record)"
+                  :key="`${prescriptionRowKey(record)}-${medicine}-${index}`"
+                  type="button"
+                  :class="['medicine-chip-button', medicineChipClass(index)]"
+                  :aria-label="medicine"
                 >
-                  <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
-                </AInput>
-                <div class="prescription-filter-actions">
-                  <AButton size="small" class="prescription-filter-reset" @click="clearPrescriptionFilter(clearFilters, confirm)">Đặt lại</AButton>
-                  <AButton type="primary" size="small" class="prescription-filter-submit" @click="confirm()">Áp dụng</AButton>
-                </div>
-              </div>
-            </template>
-            <template #customFilterIcon="{ filtered }">
-              <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
-            </template>
-            <template #emptyText>
-              <div class="py-8 text-center">
-                <Pill class="mx-auto h-9 w-9 text-slate-300" />
-                <p class="mt-3 font-bold text-slate-800">Không có đơn thuốc phù hợp</p>
-                <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc từ khóa tìm kiếm trong từng cột.</p>
-              </div>
-            </template>
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'code'">
-                <span class="font-bold text-slate-950">{{ prescriptionCode(record) }}</span>
-              </template>
-              <template v-else-if="column.key === 'createdAt'">
-                <span class="whitespace-nowrap text-[13px] font-medium text-slate-500">{{ formatDateTime(record.createdAt) }}</span>
-              </template>
-              <template v-else-if="column.key === 'medicines'">
-                <div class="medicine-button-group" :title="allMedicinesText(record)">
-                  <template v-if="prescriptionMedicineNames(record).length">
-                    <AButton
-                      v-for="(medicine, index) in prescriptionMedicineNames(record)"
-                      :key="`${prescriptionRowKey(record)}-${medicine}-${index}`"
-                      size="small"
-                      :class="['medicine-chip-button', medicineButtonClass(index)]"
-                    >
-                      {{ medicine }}
-                    </AButton>
-                  </template>
-                  <span v-else class="text-sm font-medium text-slate-400">Chưa kê thuốc</span>
-                </div>
-              </template>
-              <template v-else-if="column.key === 'medicineCount'">
-                <span class="inline-flex min-w-9 justify-center rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-600">
-                  {{ prescriptionMedicineCount(record) || '-' }}
-                </span>
-              </template>
-              <template v-else-if="column.key === 'status'">
-                <ATag :bordered="false" :class="['prescription-status-tag', statusClass(record.status)]">
-                  <span class="prescription-status-dot"></span>
-                  {{ statusLabel(record.status) }}
-                </ATag>
-              </template>
-              <template v-else-if="column.key === 'actions'">
-                <button type="button" class="prescription-action-button" title="Xem chi tiết đơn thuốc" @click="openDetails(record)">
-                  <Eye class="h-4 w-4" />
-                  <span>Chi tiết</span>
+                  {{ medicine }}
                 </button>
-              </template>
+                <span v-if="!prescriptionMedicineNames(record).length" class="text-[13px] font-medium text-slate-400">Chưa kê thuốc</span>
+              </div>
             </template>
-          </ATable>
-        </div>
-
-        <!-- Empty state -->
-        <div v-else class="p-16 text-center text-slate-500">
-          <span class="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-300 mx-auto">
-            <Pill class="h-7 w-7" />
-          </span>
-          <h3 class="mt-4 text-lg font-bold text-slate-900">Bạn chưa có đơn thuốc nào</h3>
-          <p class="mx-auto mt-2 max-w-md text-sm text-slate-500 leading-relaxed">
-            Mỗi đơn thuốc sau khi được bác sĩ kê sẽ hiển thị tại đây. Vui lòng thử reset bộ lọc hoặc kiểm tra lại lịch hẹn.
-          </p>
-        </div>
+            <template v-else-if="column.key === 'medicineCount'">
+              <span class="text-[13px] text-slate-600">{{ prescriptionMedicineCount(record) || '-' }}</span>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <ATag :bordered="false" :class="['prescription-status-tag', statusClass(record.status)]">{{ statusLabel(record.status) }}</ATag>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <button type="button" class="prescription-action-button" title="Xem chi tiết đơn thuốc" aria-label="Xem chi tiết đơn thuốc" @click="openDetails(record)">
+                <Eye class="h-4 w-4" />
+              </button>
+            </template>
+          </template>
+        </ATable>
       </div>
     </div>
 
     <!-- 6. Drawer Chi tiết Đơn thuốc bên phải -->
-    <div v-if="drawerOpen" class="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDrawer"></div>
+    <div v-if="drawerOpen" class="fixed inset-0 z-[90] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDrawer"></div>
 
     <transition
       enter-active-class="transition duration-300 ease-out"
@@ -265,21 +121,26 @@
       leave-from-class="translate-x-0"
       leave-to-class="translate-x-full"
     >
-      <div v-if="drawerOpen && selectedPrescription" class="fixed right-0 top-0 z-50 h-screen w-full max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
+      <div v-if="drawerOpen && selectedPrescription" class="fixed right-0 top-0 z-[90] h-screen w-full max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
         
         <!-- Drawer Header -->
-        <div class="flex items-center justify-between border-b border-slate-100 p-5 bg-slate-50/50">
-          <div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-slate-900">Chi tiết đơn thuốc</h2>
-              <span :class="['rounded-full px-2.5 py-0.5 text-[10px] font-bold border inline-flex items-center gap-1', statusClass(selectedPrescription.status)]">
-                <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
-                {{ statusLabel(selectedPrescription.status) }}
-              </span>
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+          <div class="flex items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700">
+              <Pill class="h-5 w-5" />
+            </span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-lg font-bold text-slate-900">Chi tiết đơn thuốc</h2>
+                <span :class="['rounded-full px-2.5 py-0.5 text-[10px] font-bold border inline-flex items-center gap-1', statusClass(selectedPrescription.status)]">
+                  <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
+                  {{ statusLabel(selectedPrescription.status) }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs font-semibold text-slate-500 font-mono">
+                Mã: {{ selectedPrescription.prescriptionCode || 'DT' + String(selectedPrescription.id).padStart(3, '0') }}
+              </p>
             </div>
-            <p class="mt-1 text-xs font-semibold text-slate-500 font-mono">
-              Mã: {{ selectedPrescription.prescriptionCode || 'DT' + String(selectedPrescription.id).padStart(3, '0') }}
-            </p>
           </div>
           <div class="flex items-center">
             <button type="button" class="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" @click="closeDrawer">
@@ -295,13 +156,14 @@
             :key="tab.key"
             type="button"
             :class="[
-              'px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition relative',
+              'inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition relative',
               currentTab === tab.key
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             ]"
             @click="currentTab = tab.key"
           >
+            <component :is="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
           </button>
         </div>
@@ -482,11 +344,12 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import {
-  CheckCircle2,
-  Clock,
+  CalendarClock,
+  CheckSquare,
+  ClipboardList,
   Eye,
+  FileText,
   Pill,
-  RefreshCw,
   Search,
   Send,
   ShieldAlert,
@@ -529,10 +392,10 @@ const selectedPrescription = ref<Prescription | null>(null)
 const currentTab = ref('overview')
 
 const drawerTabs = [
-  { key: 'overview', label: 'Tổng quan' },
-  { key: 'medicines', label: 'Danh sách thuốc' },
-  { key: 'instructions', label: 'Hướng dẫn dùng thuốc' },
-  { key: 'pharmacy', label: 'Nhà thuốc / xử lý' },
+  { key: 'overview', label: 'Tổng quan', icon: ClipboardList },
+  { key: 'medicines', label: 'Danh sách thuốc', icon: Pill },
+  { key: 'instructions', label: 'Hướng dẫn dùng thuốc', icon: FileText },
+  { key: 'pharmacy', label: 'Nhà thuốc / xử lý', icon: Send },
 ]
 
 // Toasts
@@ -547,19 +410,6 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null
 watch(() => toast.show, (visible) => {
   if (toastTimer) clearTimeout(toastTimer)
   if (visible) toastTimer = setTimeout(() => { toast.show = false }, 3000)
-})
-
-// Statistics computation
-const stats = computed(() => {
-  const total = prescriptions.value.length
-  
-  const pending = prescriptions.value.filter(p => ['pending', 'processing', 'partial', 'outOfStock'].includes(prescriptionStatusBucket(p.status))).length
-
-  const sent = prescriptions.value.filter(p => ['sent', 'ready'].includes(prescriptionStatusBucket(p.status))).length
-
-  const completed = prescriptions.value.filter(p => ['dispensed', 'completed'].includes(prescriptionStatusBucket(p.status))).length
-
-  return { total, pending, sent, completed }
 })
 
 // Filter computation
@@ -623,19 +473,11 @@ watch(filters, () => {
   currentPage.value = 1
 })
 
-const totalPages = computed(() => Math.ceil(filteredPrescriptions.value.length / itemsPerPage.value))
-
-const paginatedPrescriptions = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return filteredPrescriptions.value.slice(start, end)
-})
-
 const prescriptionTableColumns = [
   {
     title: 'Mã đơn',
     key: 'code',
-    width: 150,
+    width: 124,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('code'),
     sorter: (a: Prescription, b: Prescription) => prescriptionCode(a).localeCompare(prescriptionCode(b), 'vi'),
@@ -644,7 +486,7 @@ const prescriptionTableColumns = [
     title: 'Ngày kê',
     dataIndex: 'createdAt',
     key: 'createdAt',
-    width: 210,
+    width: 162,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('createdAt'),
     sorter: (a: Prescription, b: Prescription) => prescriptionTimestamp(a) - prescriptionTimestamp(b),
@@ -653,14 +495,14 @@ const prescriptionTableColumns = [
   {
     title: 'Thuốc',
     key: 'medicines',
-    minWidth: 320,
+    width: 270,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('medicines'),
   },
   {
     title: 'Số loại',
     key: 'medicineCount',
-    width: 140,
+    width: 92,
     align: 'center' as const,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('medicineCount'),
@@ -669,16 +511,25 @@ const prescriptionTableColumns = [
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 230,
-    customFilterDropdown: true,
-    onFilter: prescriptionColumnFilter('status'),
+    width: 158,
+    filters: [
+      { text: 'Chờ xử lý', value: 'Chờ xử lý' },
+      { text: 'Đang xử lý', value: 'Đang xử lý' },
+      { text: 'Đã gửi nhà thuốc', value: 'Đã gửi nhà thuốc' },
+      { text: 'Sẵn sàng phát thuốc', value: 'Sẵn sàng phát thuốc' },
+      { text: 'Đã phát thuốc', value: 'Đã phát thuốc' },
+      { text: 'Hoàn tất', value: 'Hoàn tất' },
+      { text: 'Đã hủy', value: 'Đã hủy' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Prescription) => statusLabel(record.status) === String(filterValue),
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 150,
-    align: 'right' as const,
-    fixed: 'right' as const,
+    width: 74,
+    align: 'center' as const,
   },
 ]
 
@@ -690,7 +541,7 @@ const prescriptionPagination = computed(() => ({
   showLessItems: true,
   showTitle: false,
   responsive: true,
-  showTotal: (total: number, range: [number, number]) => `Hiển thị ${range[0]} - ${range[1]} trên ${total} kết quả`,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} đơn thuốc`,
   locale: { items_per_page: ' / trang' },
 }))
 
@@ -747,13 +598,6 @@ function closeDrawer() {
   selectedPrescription.value = null
 }
 
-function resetFilters() {
-  filters.search = ''
-  filters.status = 'ALL'
-  filters.startDate = ''
-  filters.endDate = ''
-}
-
 // Helpers for medicines lists
 function prescriptionRowKey(prescription: Prescription) {
   return String(
@@ -794,18 +638,6 @@ function prescriptionMedicineCount(prescription: Prescription) {
 function prescriptionTimestamp(prescription: Prescription) {
   const time = prescription.createdAt ? new Date(prescription.createdAt).getTime() : 0
   return Number.isNaN(time) ? 0 : time
-}
-
-function medicineButtonClass(index: number) {
-  const classes = [
-    'medicine-chip-blue',
-    'medicine-chip-emerald',
-    'medicine-chip-amber',
-    'medicine-chip-rose',
-    'medicine-chip-cyan',
-    'medicine-chip-violet',
-  ]
-  return classes[index % classes.length]
 }
 
 function prescriptionSearchField(prescription: Prescription, key: string) {
@@ -877,6 +709,16 @@ function allMedicinesText(prescription: Prescription) {
   const names = prescriptionMedicineNames(prescription)
   if (names.length) return names.join(', ')
   return prescription.note || 'Chưa kê thuốc'
+}
+
+function medicineChipClass(index: number) {
+  return `medicine-chip-${index % 8}`
+}
+
+function medicineChipDensityClass(count: number) {
+  if (count >= 5) return 'medicine-chip-group-dense'
+  if (count >= 3) return 'medicine-chip-group-compact'
+  return 'medicine-chip-group-roomy'
 }
 
 const doctorNamesMap: Record<number, string> = {
@@ -1048,6 +890,15 @@ function formatDateTime(value?: string) {
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
+function formatTime(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
 function prescriptionStatusBucket(status?: string) {
   const s = String(status || '').trim().toLowerCase()
   if (!s) return 'unknown'
@@ -1141,168 +992,349 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 
 .prescription-table-shell {
   overflow: hidden;
+  border: 1px solid #e5eaf1;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 0.035);
 }
 
 .prescription-table-shell :deep(.ant-table) {
   color: #334155;
-  font-size: 14px;
+  font-size: 13px;
+}
+
+.prescription-table-shell :deep(.ant-table-container),
+.prescription-table-shell :deep(.ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+.prescription-table-shell :deep(.ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
 }
 
 .prescription-table-shell :deep(.ant-table-thead > tr > th) {
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  height: 44px;
+  padding-block: 10px;
+  padding-inline: 12px;
+  border-bottom: 1px solid #e8edf3;
+  background: #f9fbfd;
   color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  padding: 16px 20px;
-  text-transform: uppercase;
+  font-size: 11.5px;
+  font-weight: 650;
 }
 
 .prescription-table-shell :deep(.ant-table-tbody > tr > td) {
-  border-bottom: 1px solid #f1f5f9;
-  padding: 18px 20px;
-  vertical-align: middle;
+  min-height: 52px;
+  padding-block: 9px;
+  padding-inline: 12px;
+  border-bottom-color: #eef2f7;
+  overflow-wrap: anywhere;
+}
+
+.prescription-table-shell :deep(.ant-table-tbody > tr:last-child > td) {
+  border-bottom: 0;
 }
 
 .prescription-table-shell :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f8fafc;
+  background: #f7faff;
 }
 
-.prescription-table-shell :deep(.ant-table-cell-fix-right) {
-  background: #fff;
+.prescription-table-shell :deep(.ant-table-tbody > tr > td.ant-table-cell-fix-right),
+.prescription-table-shell :deep(.ant-table-thead > tr > th.ant-table-cell-fix-right) {
+  background: #ffffff;
 }
 
-.prescription-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
-  background: #f8fafc;
+.prescription-table-shell :deep(.ant-table-tbody > tr:hover > td.ant-table-cell-fix-right) {
+  background: #f7faff;
+}
+
+.prescription-table-shell :deep(.ant-table-cell-fix-right-first::after) {
+  box-shadow: inset -8px 0 8px -8px rgb(15 23 42 / 0.16);
+}
+
+.prescription-table-shell :deep(.ant-table-column-sorter),
+.prescription-table-shell :deep(.ant-table-filter-trigger) {
+  color: #94a3b8;
+  opacity: 0.45;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.prescription-table-shell :deep(th:hover .ant-table-column-sorter),
+.prescription-table-shell :deep(th:hover .ant-table-filter-trigger),
+.prescription-table-shell :deep(.ant-table-filter-trigger.active) {
+  opacity: 1;
+}
+
+.prescription-table-shell :deep(.ant-table-filter-trigger:hover),
+.prescription-table-shell :deep(.ant-table-filter-trigger.active),
+.prescription-table-shell :deep(.ant-table-column-sorter-up.active),
+.prescription-table-shell :deep(.ant-table-column-sorter-down.active) {
+  color: #0f52ba;
 }
 
 .prescription-table-shell :deep(.ant-pagination) {
-  border-top: 1px solid #f1f5f9;
+  min-height: 58px;
   margin: 0;
-  padding: 16px;
+  padding: 13px 16px;
+  border-top: 1px solid #eef2f7;
+  background: #fbfcfe;
+  gap: 4px;
+}
+
+.prescription-table-shell :deep(.ant-pagination-total-text) {
+  margin-right: auto;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 30px;
+}
+
+.prescription-table-shell :deep(.ant-pagination-item),
+.prescription-table-shell :deep(.ant-pagination-prev .ant-pagination-item-link),
+.prescription-table-shell :deep(.ant-pagination-next .ant-pagination-item-link) {
+  min-width: 30px;
+  height: 30px;
+  margin-inline-end: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  line-height: 28px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.prescription-table-shell :deep(.ant-pagination-item:hover),
+.prescription-table-shell :deep(.ant-pagination-prev:not(.ant-pagination-disabled) .ant-pagination-item-link:hover),
+.prescription-table-shell :deep(.ant-pagination-next:not(.ant-pagination-disabled) .ant-pagination-item-link:hover) {
+  border-color: transparent;
+  background: #eaf2ff;
+  color: #0f52ba;
+}
+
+.prescription-table-shell :deep(.ant-pagination-item-active) {
+  border-color: transparent;
+  background: #0f52ba;
+  box-shadow: 0 4px 12px rgb(15 82 186 / 0.2);
+}
+
+.prescription-table-shell :deep(.ant-pagination-item-active:hover) {
+  border-color: transparent;
+  background: #003c90;
+}
+
+.prescription-table-shell :deep(.ant-pagination-item-active a),
+.prescription-table-shell :deep(.ant-pagination-item-active:hover a),
+.prescription-table-shell :deep(.ant-pagination-item-active:focus a) {
+  color: #ffffff;
+}
+
+.prescription-table-shell :deep(.ant-pagination-options) {
+  margin-inline-start: 8px;
+}
+
+.prescription-table-shell :deep(.ant-pagination-options .ant-select-selector) {
+  height: 30px;
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.prescription-table-shell :deep(.ant-pagination-options .ant-select-selection-item) {
+  line-height: 28px;
 }
 
 .prescription-filter {
-  width: 260px;
-  padding: 12px;
+  width: 270px;
+  padding: 16px;
+  border: 1px solid #e8edf3;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 14px 36px rgb(15 23 42 / 0.1);
 }
 
 .prescription-filter-title {
-  color: #475569;
-  font-size: 12px;
-  font-weight: 800;
-  margin: 0 0 8px;
+  margin-bottom: 10px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
 }
 
 .prescription-filter-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  justify-content: flex-end;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
-.prescription-filter-reset {
-  border-color: #e2e8f0;
-  color: #64748b;
-  font-weight: 700;
-}
-
-.prescription-filter-submit {
-  background: #0F52BA;
-  border-color: #0F52BA;
-  font-weight: 700;
-}
-
-.medicine-button-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-width: 460px;
-}
-
-.medicine-chip-button {
-  border: 0;
-  border-radius: 999px;
-  box-shadow: none;
+.prescription-filter :deep(.ant-input-affix-wrapper),
+.prescription-filter :deep(.ant-input) {
   font-size: 12px;
-  font-weight: 800;
-  height: 30px;
-  max-width: 210px;
-  overflow: hidden;
-  padding: 0 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.medicine-chip-blue {
-  background: #eaf3ff;
-  color: #0F52BA;
+.prescription-filter :deep(.ant-input-affix-wrapper) {
+  height: 38px;
+  padding-inline: 11px;
+  border-color: #dfe5ec;
+  border-radius: 8px;
+  box-shadow: none;
 }
 
-.medicine-chip-emerald {
-  background: #dcfce7;
-  color: #047857;
+.prescription-filter :deep(.ant-input-affix-wrapper:hover),
+.prescription-filter :deep(.ant-input-affix-wrapper-focused) {
+  border-color: #93b4e6;
+  box-shadow: 0 0 0 3px rgb(15 82 186 / 0.08);
 }
 
-.medicine-chip-amber {
-  background: #fef3c7;
-  color: #b45309;
+.prescription-filter :deep(.ant-btn) {
+  height: 34px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
 }
 
-.medicine-chip-rose {
-  background: #ffe4e6;
-  color: #be123c;
+.prescription-filter :deep(.ant-btn-primary) {
+  background: #0f52ba;
+  box-shadow: none;
 }
 
-.medicine-chip-cyan {
-  background: #cffafe;
-  color: #0e7490;
-}
-
-.medicine-chip-violet {
-  background: #ede9fe;
-  color: #6d28d9;
+.prescription-filter :deep(.ant-btn-primary:hover) {
+  background: #003c90;
 }
 
 .prescription-status-tag {
-  align-items: center;
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  gap: 6px;
-  line-height: 1;
   margin: 0;
-  padding: 8px 12px;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
 }
 
-.prescription-status-dot {
-  background: currentColor;
+.medicine-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: visible;
+}
+
+.medicine-chip-button {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  align-items: center;
   border-radius: 999px;
-  height: 7px;
-  width: 7px;
+  border: 1px solid currentColor;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.medicine-chip-group-compact {
+  gap: 3px;
+}
+
+.medicine-chip-group-compact .medicine-chip-button {
+  height: 21px;
+  padding-inline: 7px;
+  font-size: 10.75px;
+}
+
+.medicine-chip-group-dense {
+  gap: 3px;
+}
+
+.medicine-chip-group-dense .medicine-chip-button {
+  height: 19px;
+  padding-inline: 6px;
+  font-size: 10px;
+}
+
+.medicine-chip-0 {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.medicine-chip-1 {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.medicine-chip-2 {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.medicine-chip-3 {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.medicine-chip-4 {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.medicine-chip-5 {
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.medicine-chip-6 {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.medicine-chip-7 {
+  background: #f0fdfa;
+  color: #0f766e;
 }
 
 .prescription-action-button {
-  align-items: center;
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  border-radius: 999px;
-  color: #1d4ed8;
   display: inline-flex;
-  font-size: 13px;
-  font-weight: 800;
-  gap: 8px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  align-items: center;
   justify-content: center;
-  padding: 0 14px;
-  transition: background .2s, border-color .2s, color .2s;
+  border: 1px solid #a5f3fc;
+  border-radius: 7px;
+  background: #ecfeff;
+  color: #0e7490;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .prescription-action-button:hover {
-  background: #dbeafe;
-  border-color: #bfdbfe;
-  color: #0F52BA;
+  border-color: #67e8f9;
+  background: #cffafe;
+  color: #155e75;
+  transform: translateY(-1px);
+}
+
+:global(.ant-table-filter-dropdown .prescription-filter) {
+  margin: -4px;
+}
+
+:global(.ant-table-filter-dropdown .ant-dropdown-menu-title-content),
+:global(.ant-table-filter-dropdown .ant-checkbox-wrapper) {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+:global(.ant-table-filter-dropdown-btns .ant-btn) {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .prescription-table-shell :deep(.ant-pagination) {
+    justify-content: center;
+  }
+
+  .prescription-table-shell :deep(.ant-pagination-total-text) {
+    display: none;
+  }
 }
 </style>

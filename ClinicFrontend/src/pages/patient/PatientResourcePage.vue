@@ -4,11 +4,11 @@
 
     <div class="mx-auto max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
       <header class="px-1">
-        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">{{ config.title }}</h1>
-        <p class="mt-1.5 text-[13px] leading-5 text-slate-500">{{ config.description }}</p>
+        <h1 class="text-[1.75rem] font-bold tracking-normal text-slate-950">{{ config.title }}</h1>
+        <p :class="['mt-1.5 text-[13px] leading-5 text-slate-500', resource !== 'profile' ? 'font-medium' : '']">{{ config.description }}</p>
       </header>
 
-    <div v-if="resource !== 'profile' && resource !== 'appointments'" class="grid gap-4 sm:grid-cols-3">
+    <div v-if="resource === 'records'" class="grid gap-4 sm:grid-cols-3">
       <div v-for="metric in metrics" :key="metric.label" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ metric.label }}</p>
         <p class="mt-2 text-2xl font-bold text-slate-950">{{ metric.value }}</p>
@@ -16,109 +16,152 @@
       </div>
     </div>
 
-    <div v-if="note && resource !== 'appointments'" class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90]">{{ note }}</div>
+    <div v-if="note && resource === 'profile'" class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90]">{{ note }}</div>
     <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ error }}</div>
 
-    <div v-if="resource === 'profile'" class="grid gap-6 lg:grid-cols-[1fr_0.85fr]">
-      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div class="flex items-center gap-4">
-            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
-              <UserRound class="h-7 w-7" />
-            </div>
-            <div>
-              <p class="text-sm font-bold uppercase tracking-wide text-[#0F52BA]">Thông tin tài khoản</p>
-              <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ profileForm.fullName || authStore.user?.username || 'Bệnh nhân' }}</h2>
-            </div>
-          </div>
-          <span class="inline-flex h-9 items-center rounded-lg bg-blue-50 px-3 text-sm font-bold text-[#003c90]">
-            {{ displayPatientCode }}
+    <div v-if="resource === 'profile'" class="rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div class="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-4">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
+            <UserRound class="h-5 w-5" />
           </span>
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Hồ sơ bệnh nhân</p>
+            <h2 class="mt-1 text-xl font-bold text-slate-950">{{ profileForm.fullName || authStore.user?.username || 'Bệnh nhân' }}</h2>
+            <p class="mt-1 text-xs text-slate-500">Cập nhật lần cuối: {{ formatDate(currentPatient?.updatedAt || currentPatient?.createdAt) }}</p>
+          </div>
         </div>
+        <span class="inline-flex h-8 items-center rounded-lg bg-blue-50 px-3 font-mono text-xs font-semibold text-[#0F52BA]">
+          {{ displayPatientCode }}
+        </span>
+      </div>
 
-        <form class="mt-6 grid gap-4 sm:grid-cols-2" @submit.prevent="saveProfile">
-          <BaseInput v-model="profileForm.fullName" label="Họ và tên" required />
-          <BaseInput :model-value="authStore.user?.username || ''" label="Tên đăng nhập" disabled />
-          <BaseInput v-model="profileForm.email" label="Email" type="email" required />
-          <BaseInput v-model="profileForm.phoneNumber" label="Số điện thoại" />
-          <BaseInput v-model="profileForm.citizenId" label="Số CCCD" inputmode="numeric" maxlength="12" @update:model-value="handleCitizenInput" />
-          <BaseInput v-model="profileForm.dateOfBirth" label="Ngày sinh" type="date" />
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Giới tính</span>
-            <select
-              v-model="profileForm.gender"
-              class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-            >
-              <option value="">Chưa chọn</option>
-              <option value="Nam">Nam</option>
-              <option value="Nữ">Nữ</option>
-              <option value="Khác">Khác</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Nhóm máu</span>
-            <select
-              v-model="profileForm.bloodType"
-              class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-            >
-              <option value="">Chưa rõ</option>
-              <option v-for="type in bloodTypes" :key="type" :value="type">{{ type }}</option>
-            </select>
-          </label>
-          <label class="block sm:col-span-2">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Địa chỉ</span>
-            <textarea
-              v-model="profileForm.address"
-              rows="3"
-              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-              placeholder="Nhập địa chỉ hiện tại"
-            ></textarea>
-          </label>
-          <label class="block sm:col-span-2">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Dị ứng</span>
-            <textarea
-              v-model="profileForm.allergyNote"
-              rows="2"
-              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-              placeholder="VD: Không có, dị ứng penicillin..."
-            ></textarea>
-          </label>
-          <label class="block sm:col-span-2">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Tiền sử bệnh</span>
-            <textarea
-              v-model="profileForm.medicalHistory"
-              rows="3"
-              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-              placeholder="VD: Tăng huyết áp, tiểu đường, phẫu thuật trước đây..."
-            ></textarea>
-          </label>
-          <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Mã bệnh nhân</p>
-            <p class="mt-2 break-words font-semibold text-slate-900">{{ displayPatientCode }}</p>
+      <form class="space-y-4 p-4" @submit.prevent="saveProfile">
+        <section class="space-y-3">
+          <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <Mail class="h-4 w-4 text-[#0F52BA]" />
+            Thông tin liên hệ
+          </h3>
+          <div class="grid gap-3 md:grid-cols-4">
+            <label class="block md:col-span-2">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Họ và tên <span class="text-rose-600">*</span></span>
+              <span class="relative block">
+                <UserRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input v-model="profileForm.fullName" required class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
+              </span>
+            </label>
+            <label class="block md:col-span-2">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Tên đăng nhập</span>
+              <span class="relative block">
+                <AtSign class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input :value="authStore.user?.username || ''" disabled class="h-10 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-500 outline-none" />
+              </span>
+            </label>
+            <label class="block md:col-span-2">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Email <span class="text-rose-600">*</span></span>
+              <span class="relative block">
+                <Mail class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input v-model="profileForm.email" type="email" required class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
+              </span>
+            </label>
+            <label class="block md:col-span-2">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Số điện thoại</span>
+              <span class="relative block">
+                <Phone class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input v-model="profileForm.phoneNumber" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
+              </span>
+            </label>
           </div>
-          <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Cập nhật gần nhất</p>
-            <p class="mt-2 break-words font-semibold text-slate-900">{{ formatDate(currentPatient?.updatedAt || currentPatient?.createdAt) }}</p>
+        </section>
+
+        <section class="space-y-3 border-t border-slate-100 pt-4">
+          <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <IdCard class="h-4 w-4 text-[#0F52BA]" />
+            Thông tin cá nhân
+          </h3>
+          <div class="grid gap-3 md:grid-cols-4">
+            <label class="block">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Số CCCD</span>
+              <span class="relative block">
+                <IdCard class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input v-model="profileForm.citizenId" inputmode="numeric" maxlength="12" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" @input="handleCitizenInput(($event.target as HTMLInputElement).value)" />
+              </span>
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Ngày sinh</span>
+              <span class="relative block">
+                <CalendarDays class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input v-model="profileForm.dateOfBirth" type="date" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
+              </span>
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Giới tính</span>
+              <span class="relative block">
+                <VenetianMask class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  v-model="profileForm.gender"
+                  class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="">Chưa chọn</option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </span>
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-sm font-medium text-slate-700">Nhóm máu</span>
+              <span class="relative block">
+                <Droplet class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  v-model="profileForm.bloodType"
+                  class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="">Chưa rõ</option>
+                  <option v-for="type in bloodTypes" :key="type" :value="type">{{ type }}</option>
+                </select>
+              </span>
+            </label>
           </div>
-          <div class="sm:col-span-2">
-            <BaseButton type="submit" :loading="profileSaving">
-              <template #icon><Save class="h-4 w-4" /></template>
-              Lưu hồ sơ
-            </BaseButton>
+        </section>
+
+        <section class="space-y-3 border-t border-slate-100 pt-4">
+          <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <HeartPulse class="h-4 w-4 text-[#0F52BA]" />
+            Thông tin y tế
+          </h3>
+          <div class="grid gap-3 md:grid-cols-3">
+            <label class="block md:col-span-2">
+              <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                <MapPin class="h-3.5 w-3.5 text-slate-400" />
+                Địa chỉ
+              </span>
+              <textarea v-model="profileForm.address" rows="2" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" placeholder="Nhập địa chỉ hiện tại"></textarea>
+            </label>
+            <label class="block">
+              <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                <ShieldAlert class="h-3.5 w-3.5 text-slate-400" />
+                Dị ứng
+              </span>
+              <textarea v-model="profileForm.allergyNote" rows="2" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" placeholder="VD: Không có, dị ứng penicillin..."></textarea>
+            </label>
+            <label class="block md:col-span-3">
+              <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                <ClipboardList class="h-3.5 w-3.5 text-slate-400" />
+                Tiền sử bệnh
+              </span>
+              <textarea v-model="profileForm.medicalHistory" rows="2" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" placeholder="VD: Tăng huyết áp, tiểu đường..."></textarea>
+            </label>
           </div>
-        </form>
-      </section>
-      <section class="rounded-2xl border border-blue-100 bg-blue-50 p-6 text-[#003c90]">
-        <div class="flex items-center gap-3">
-          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white"><ShieldCheck class="h-5 w-5" /></span>
-          <h3 class="font-bold">Liên kết dữ liệu</h3>
+        </section>
+
+        <div class="flex justify-end border-t border-slate-100 pt-4">
+          <BaseButton type="submit" :loading="profileSaving">
+            <template #icon><Save class="h-4 w-4" /></template>
+            Lưu hồ sơ
+          </BaseButton>
         </div>
-        <div class="mt-5 space-y-3 text-sm leading-6">
-          <p>Lịch hẹn được liên kết theo mã bệnh nhân.</p>
-          <p>Hồ sơ khám bệnh và đơn thuốc được tổng hợp theo từng lượt khám.</p>
-          <p>Viện phí được hiển thị theo tài khoản hoặc mã bệnh nhân.</p>
-        </div>
-      </section>
+      </form>
     </div>
 
     <div v-else-if="resource === 'appointments'" class="appointment-table-shell">
@@ -126,9 +169,9 @@
         :columns="appointmentTableColumns"
         :data-source="rows"
         :pagination="appointmentPagination"
-        :scroll="{ x: 1080 }"
         row-key="id"
         size="middle"
+        table-layout="fixed"
         @change="handleAppointmentTableChange"
       >
         <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
@@ -150,8 +193,9 @@
             </div>
           </div>
         </template>
-        <template #customFilterIcon="{ filtered }">
-          <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
         </template>
         <template #emptyText>
           <div class="py-8 text-center">
@@ -170,6 +214,9 @@
           <template v-else-if="column.key === 'specialtyName'">
             <span class="text-[13px] text-slate-600">{{ record.specialtyName }}</span>
           </template>
+          <template v-else-if="column.key === 'room'">
+            <span class="whitespace-nowrap text-[13px] font-medium text-slate-700">{{ record.room }}</span>
+          </template>
           <template v-else-if="column.key === 'dateTime'">
             <div class="flex items-center gap-2 whitespace-nowrap">
               <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
@@ -186,7 +233,7 @@
           <template v-else-if="column.key === 'actions'">
             <button
               type="button"
-              class="appointment-action-button"
+              class="appointment-action-button appointment-action-appointment"
               title="Xem chi tiết lịch hẹn"
               aria-label="Xem chi tiết lịch hẹn"
               @click="openDetail(record)"
@@ -201,6 +248,187 @@
       </ATable>
     </div>
 
+    <div v-else-if="resource === 'prescriptions'" class="appointment-table-shell">
+      <ATable
+        :columns="prescriptionTableColumns"
+        :data-source="filteredRows"
+        :pagination="prescriptionPagination"
+        row-key="id"
+        size="middle"
+        table-layout="fixed"
+        @change="handlePrescriptionTableChange"
+      >
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div class="appointment-filter">
+            <p class="appointment-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+            <AInput
+              :value="selectedKeys[0]"
+              :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+              allow-clear
+              autofocus
+              @change="setSelectedKeys(getFilterKeys($event))"
+              @press-enter="confirm()"
+            >
+              <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+            </AInput>
+            <div class="appointment-filter-actions">
+              <AButton size="small" class="appointment-filter-reset" @click="clearAppointmentFilter(clearFilters, confirm)">Đặt lại</AButton>
+              <AButton type="primary" size="small" class="appointment-filter-submit" @click="confirm()">Áp dụng</AButton>
+            </div>
+          </div>
+        </template>
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        </template>
+        <template #emptyText>
+          <div class="py-8 text-center">
+            <Pill class="mx-auto h-9 w-9 text-slate-300" />
+            <p class="mt-3 font-bold text-slate-800">Chưa có đơn thuốc phù hợp</p>
+            <p class="mt-1 text-sm text-slate-500">Thử đổi từ khóa tìm kiếm trong từng cột.</p>
+          </div>
+        </template>
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'id'">
+            <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ record.id }}</span>
+          </template>
+          <template v-else-if="column.key === 'medicine'">
+            <div
+              :class="['medicine-chip-group', medicineChipDensityClass(prescriptionMedicineNames(record).length)]"
+              :title="record.medicine"
+            >
+              <button
+                v-for="(medicine, index) in prescriptionMedicineNames(record)"
+                :key="`${record.id}-${medicine}-${index}`"
+                type="button"
+                :class="['medicine-chip-button', medicineChipClass(index)]"
+                :aria-label="medicine"
+              >
+                {{ medicine }}
+              </button>
+              <span v-if="!prescriptionMedicineNames(record).length" class="text-[13px] font-medium text-slate-400">Chưa có thuốc</span>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'quantity'">
+            <span class="text-[13px] font-medium text-slate-600">{{ record.quantity }}</span>
+          </template>
+          <template v-else-if="column.key === 'note'">
+            <span class="line-clamp-2 text-[13px] leading-5 text-slate-600" :title="record.note">{{ record.note }}</span>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <ATag :bordered="false" :class="['appointment-status', statusClass(record.status)]">{{ record.status }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'actions'">
+            <button
+              type="button"
+              class="appointment-action-button appointment-action-prescription"
+              title="Xem chi tiết đơn thuốc"
+              aria-label="Xem chi tiết đơn thuốc"
+              @click="openDetail(record)"
+            >
+              <Eye class="h-4 w-4" />
+            </button>
+          </template>
+        </template>
+      </ATable>
+    </div>
+
+    <div v-else-if="resource === 'bills'" class="appointment-table-shell">
+      <ATable
+        :columns="billTableColumns"
+        :data-source="filteredRows"
+        :pagination="billPagination"
+        :row-key="billRowKey"
+        size="middle"
+        table-layout="fixed"
+        @change="handleBillTableChange"
+      >
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div class="appointment-filter">
+            <p class="appointment-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+            <AInput
+              :value="selectedKeys[0]"
+              :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+              allow-clear
+              autofocus
+              @change="setSelectedKeys(getFilterKeys($event))"
+              @press-enter="confirm()"
+            >
+              <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+            </AInput>
+            <div class="appointment-filter-actions">
+              <AButton size="small" class="appointment-filter-reset" @click="clearAppointmentFilter(clearFilters, confirm)">Đặt lại</AButton>
+              <AButton type="primary" size="small" class="appointment-filter-submit" @click="confirm()">Áp dụng</AButton>
+            </div>
+          </div>
+        </template>
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        </template>
+        <template #emptyText>
+          <div class="py-8 text-center">
+            <CreditCard class="mx-auto h-9 w-9 text-slate-300" />
+            <p class="mt-3 font-bold text-slate-800">Không có viện phí phù hợp</p>
+            <p class="mt-1 text-sm text-slate-500">Thử đổi từ khóa tìm kiếm trong từng cột.</p>
+          </div>
+        </template>
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'id'">
+            <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ record.id }}</span>
+          </template>
+          <template v-else-if="column.key === 'appointmentId'">
+            <span class="font-mono text-xs font-medium text-slate-600">{{ record.appointmentId }}</span>
+          </template>
+          <template v-else-if="column.key === 'createdAt'">
+            <div class="flex items-center gap-2 whitespace-nowrap">
+              <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+              <span class="text-[13px] text-slate-600">{{ record.createdAt }}</span>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'examFee'">
+            <span class="whitespace-nowrap text-[13px] text-slate-600">{{ record.examFee }}</span>
+          </template>
+          <template v-else-if="column.key === 'medicineTotal'">
+            <span class="whitespace-nowrap text-[13px] text-slate-600">{{ record.medicineTotal }}</span>
+          </template>
+          <template v-else-if="column.key === 'amount'">
+            <span class="whitespace-nowrap text-[13px] font-semibold text-slate-800">{{ record.amount }}</span>
+          </template>
+          <template v-else-if="column.key === 'paidAmount'">
+            <span class="whitespace-nowrap text-[13px] text-slate-600">{{ record.paidAmount }}</span>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <ATag :bordered="false" :class="['appointment-status', statusClass(record.status)]">{{ record.status }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'actions'">
+            <div class="bill-action-group">
+              <button
+                type="button"
+                class="appointment-action-button appointment-action-bill"
+                title="Xem chi tiết viện phí"
+                aria-label="Xem chi tiết viện phí"
+                @click="openDetail(record)"
+              >
+                <Eye class="h-4 w-4" />
+              </button>
+              <button
+                v-if="!isPaidBillRow(record)"
+                type="button"
+                class="bill-pay-button"
+                :disabled="actingId === record.id"
+                title="Thanh toán viện phí"
+                aria-label="Thanh toán viện phí"
+                @click="openPayment(record)"
+              >
+                <CreditCard class="h-4 w-4" />
+              </button>
+            </div>
+          </template>
+        </template>
+      </ATable>
+    </div>
+
     <div v-else class="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div class="grid gap-3 border-b border-slate-100 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <label class="relative block">
@@ -210,84 +438,12 @@
         <span class="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-[#003c90]">{{ filteredRows.length }} dòng</span>
       </div>
 
-      <div v-if="filteredRows.length && resource === 'bills'" class="bill-table-shell">
-        <ATable
-          :columns="billTableColumns"
-          :data-source="filteredRows"
-          :pagination="billPagination"
-          :row-key="billRowKey"
-          :scroll="{ x: 920 }"
-          size="middle"
-          @change="handleBillTableChange"
-        >
-          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
-            <div class="bill-filter">
-              <p class="bill-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
-              <AInput
-                :value="selectedKeys[0]"
-                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
-                allow-clear
-                autofocus
-                @change="setSelectedKeys(getFilterKeys($event))"
-                @press-enter="confirm()"
-              >
-                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
-              </AInput>
-              <div class="bill-filter-actions">
-                <AButton size="small" class="bill-filter-reset" @click="clearAppointmentFilter(clearFilters, confirm)">Đặt lại</AButton>
-                <AButton type="primary" size="small" class="bill-filter-submit" @click="confirm()">Áp dụng</AButton>
-              </div>
-            </div>
-          </template>
-          <template #customFilterIcon="{ filtered }">
-            <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
-          </template>
-          <template #emptyText>
-            <div class="py-8 text-center">
-              <CreditCard class="mx-auto h-9 w-9 text-slate-300" />
-              <p class="mt-3 font-bold text-slate-800">Không có viện phí phù hợp</p>
-              <p class="mt-1 text-sm text-slate-500">Thử đổi từ khóa tìm kiếm trong từng cột.</p>
-            </div>
-          </template>
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'id'">
-              <span class="font-bold text-slate-950">{{ record.id }}</span>
-            </template>
-            <template v-else-if="column.key === 'appointmentId'">
-              <span class="font-mono text-sm font-medium text-slate-600">{{ record.appointmentId }}</span>
-            </template>
-            <template v-else-if="column.key === 'amount'">
-              <span class="whitespace-nowrap text-[15px] font-extrabold text-slate-950">{{ record.amount }}</span>
-            </template>
-            <template v-else-if="column.key === 'status'">
-              <ATag :bordered="false" :class="['bill-status-tag', statusClass(record.status)]">
-                <span class="bill-status-dot"></span>
-                {{ record.status }}
-              </ATag>
-            </template>
-            <template v-else-if="column.key === 'actions'">
-              <button
-                v-if="!isPaidBillRow(record)"
-                type="button"
-                class="bill-pay-button"
-                :disabled="actingId === record.id"
-                title="Thanh toán viện phí"
-                @click="openPayment(record)"
-              >
-                Thanh toán
-              </button>
-              <span v-else class="text-xs font-bold text-slate-400">Đã xử lý</span>
-            </template>
-          </template>
-        </ATable>
-      </div>
-
-      <div v-else-if="filteredRows.length" class="overflow-x-auto">
+      <div v-if="filteredRows.length" class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-100 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
               <th v-for="column in config.columns" :key="column.key" class="px-5 py-3">{{ column.label }}</th>
-              <th v-if="['records', 'prescriptions', 'bills'].includes(resource)" class="px-5 py-3 text-right">Thao tác</th>
+              <th class="px-5 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -296,12 +452,9 @@
                 <span v-if="column.badge" :class="['rounded-full px-2.5 py-1 text-xs font-bold', statusClass(value(row, column.key))]">{{ value(row, column.key) }}</span>
                 <span v-else :class="column.strong ? 'font-bold text-slate-950' : 'text-slate-700'">{{ value(row, column.key) }}</span>
               </td>
-              <td v-if="['records', 'prescriptions', 'bills'].includes(resource)" class="px-5 py-4 text-right">
-                <button v-if="resource !== 'bills'" type="button" class="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#003c90] transition hover:bg-blue-100" @click="openDetail(row)">
+              <td class="px-5 py-4 text-right">
+                <button type="button" class="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#003c90] transition hover:bg-blue-100" @click="openDetail(row)">
                   Chi tiết
-                </button>
-                <button v-else-if="String(row.status).toLowerCase() !== 'paid' && !String(row.status).toLowerCase().includes('đã thanh toán')" type="button" class="rounded-lg bg-[#0F52BA] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#003c90]" :disabled="actingId === row.id" @click="openPayment(row)">
-                  Thanh toán
                 </button>
               </td>
             </tr>
@@ -372,7 +525,7 @@
       </div>
     </div>
 
-    <div v-if="paymentOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+    <div v-if="paymentOpen" class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4">
       <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -422,25 +575,62 @@
       </div>
     </div>
 
-    <div v-if="detailOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">{{ detailTitle }}</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ detailRow?.id }}</h2>
+    <Teleport to="body">
+      <div v-if="detailOpen" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDetail"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <div v-if="detailOpen" class="fixed right-0 top-0 z-[120] flex h-screen w-full max-w-2xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="border-b border-slate-100 bg-slate-50/50 p-5">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex items-start gap-3">
+                <span :class="['flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl', detailAccentClass]">
+                  <component :is="detailIcon" class="h-5 w-5" />
+                </span>
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-900">{{ detailTitle }}</h2>
+                    <ATag v-if="detailStatus" :bordered="false" :class="['appointment-status', statusClass(detailStatus)]">
+                      {{ detailStatus }}
+                    </ATag>
+                  </div>
+                  <p class="mt-1 font-mono text-xs font-semibold text-slate-500">Mã: {{ detailRow?.id || 'Chưa cập nhật' }}</p>
+                </div>
+              </div>
+              <button type="button" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="closeDetail">
+                <X class="h-5 w-5" />
+              </button>
+            </div>
           </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="detailOpen = false">
-            <X class="h-5 w-5" />
-          </button>
+
+          <div class="flex-1 overflow-y-auto p-6">
+            <div class="space-y-5">
+              <section v-for="section in detailSections" :key="section.title" class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <component :is="section.icon" class="h-4 w-4 text-[#0F52BA]" />
+                  {{ section.title }}
+                </h3>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div
+                    v-for="item in section.items"
+                    :key="item.label"
+                    :class="['rounded-xl border border-slate-100 bg-slate-50 p-4', item.full ? 'sm:col-span-2' : '']"
+                  >
+                    <p class="text-xs font-semibold text-slate-400">{{ item.label }}</p>
+                    <p class="mt-1.5 whitespace-pre-line break-words text-sm font-semibold text-slate-900">{{ item.value }}</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
-        <dl class="mt-5 grid gap-3 sm:grid-cols-2">
-          <div v-for="[label, textValue] in detailItems" :key="label" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ label }}</dt>
-            <dd class="mt-2 whitespace-pre-line break-words text-sm font-semibold text-slate-900">{{ textValue }}</dd>
-          </div>
-        </dl>
-      </div>
-    </div>
+      </transition>
+    </Teleport>
 
       <Toast
       :show="toast.show"
@@ -457,9 +647,8 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
-import { CalendarClock, ChevronLeft, ChevronRight, Copy, CreditCard, Eye, FileHeart, Pill, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
+import { AtSign, CalendarClock, CalendarDays, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Copy, CreditCard, Droplet, Eye, FileHeart, HeartPulse, IdCard, Mail, MapPin, Phone, Pill, Save, Search, SearchX, ShieldAlert, UserRound, VenetianMask, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
 import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
@@ -469,11 +658,14 @@ import { medicalRecordApi, type PatientMedicalHistory } from '@/services/medical
 import { getApiErrorMessage } from '@/services/apiClient'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
+import type { Doctor } from '@/types/doctor'
 import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 
 type Resource = 'appointments' | 'records' | 'prescriptions' | 'bills' | 'profile'
 type Row = Record<string, any>
 interface Column { key: string; label: string; badge?: boolean; strong?: boolean }
+interface DetailItem { label: string; value: string; full?: boolean }
+interface DetailSection { title: string; icon: any; items: DetailItem[] }
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -482,6 +674,7 @@ const error = ref('')
 const note = ref('')
 const query = ref('')
 const rows = ref<Row[]>([])
+const doctors = ref<Doctor[]>([])
 const actingId = ref<string | number | null>(null)
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -517,10 +710,10 @@ watch(() => toast.show, (visible) => {
 })
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
-  appointments: cfg('Lịch hẹn của tôi', '', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám và trạng thái xác nhận.', 'Tìm mã lịch, bác sĩ, chuyên khoa, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['id', 'doctorName', 'specialtyName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã lịch'], ['doctorName', 'Bác sĩ', false, true], ['specialtyName', 'Chuyên khoa'], ['dateTime', 'Ngày giờ hẹn'], ['reason', 'Lý do khám'], ['status', 'Trạng thái', true])),
+  appointments: cfg('Lịch hẹn của tôi', '', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám và trạng thái xác nhận.', 'Tìm mã lịch, bác sĩ, chuyên khoa, phòng, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['id', 'doctorName', 'specialtyName', 'room', 'status', 'reason', 'dateTime'], cols(['id', 'Mã lịch'], ['doctorName', 'Bác sĩ', false, true], ['specialtyName', 'Chuyên khoa'], ['dateTime', 'Ngày giờ hẹn'], ['reason', 'Lý do khám'], ['status', 'Trạng thái', true])),
   records: cfg('Hồ sơ bệnh án', 'Hồ sơ khám bệnh', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
-  prescriptions: cfg('Đơn thuốc', 'Đơn thuốc đã kê', 'Xem đơn thuốc cũ đã được bác sĩ chốt và gửi sang nhà thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
-  bills: cfg('Viện phí của tôi', '', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
+  prescriptions: cfg('Đơn thuốc của tôi', 'Đơn thuốc đã kê', 'Theo dõi thuốc đã kê, số lượng, ghi chú và trạng thái xử lý.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
+  bills: cfg('Viện phí của tôi', '', 'Theo dõi hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
   profile: cfg('Hồ sơ cá nhân', '', 'Thông tin tài khoản và hồ sơ bệnh nhân liên kết.', '', UserRound, 'bg-slate-100 text-slate-700', [], []),
 }
 
@@ -551,7 +744,7 @@ const appointmentTableColumns = [
     title: 'Mã lịch',
     dataIndex: 'id',
     key: 'id',
-    width: 130,
+    width: 104,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('id'),
   },
@@ -559,7 +752,7 @@ const appointmentTableColumns = [
     title: 'Bác sĩ',
     dataIndex: 'doctorName',
     key: 'doctorName',
-    width: 230,
+    width: 180,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('doctorName'),
     sorter: (a: Row, b: Row) => String(a.doctorName || '').localeCompare(String(b.doctorName || ''), 'vi'),
@@ -568,16 +761,25 @@ const appointmentTableColumns = [
     title: 'Chuyên khoa',
     dataIndex: 'specialtyName',
     key: 'specialtyName',
-    width: 190,
+    width: 150,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('specialtyName'),
     sorter: (a: Row, b: Row) => String(a.specialtyName || '').localeCompare(String(b.specialtyName || ''), 'vi'),
   },
   {
+    title: 'Phòng',
+    dataIndex: 'room',
+    key: 'room',
+    width: 94,
+    customFilterDropdown: true,
+    onFilter: appointmentColumnFilter('room'),
+    sorter: (a: Row, b: Row) => String(a.room || '').localeCompare(String(b.room || ''), 'vi'),
+  },
+  {
     title: 'Ngày giờ hẹn',
     dataIndex: 'dateTime',
     key: 'dateTime',
-    width: 210,
+    width: 158,
     sorter: (a: Row, b: Row) => appointmentTimestamp(a) - appointmentTimestamp(b),
     defaultSortOrder: 'descend' as const,
   },
@@ -585,7 +787,7 @@ const appointmentTableColumns = [
     title: 'Lý do khám',
     dataIndex: 'reason',
     key: 'reason',
-    minWidth: 220,
+    width: 260,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('reason'),
   },
@@ -593,7 +795,7 @@ const appointmentTableColumns = [
     title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
-    width: 150,
+    width: 132,
     filters: [
       { text: 'Đang chờ', value: 'Đang chờ' },
       { text: 'Đã xác nhận', value: 'Đã xác nhận' },
@@ -609,8 +811,7 @@ const appointmentTableColumns = [
   {
     title: 'Thao t\u00e1c',
     key: 'actions',
-    width: 82,
-    fixed: 'right' as const,
+    width: 74,
     align: 'center' as const,
   },
 ]
@@ -627,12 +828,82 @@ const appointmentPagination = computed(() => ({
   locale: { items_per_page: ' / trang' },
 }))
 
+const prescriptionTableColumns = [
+  {
+    title: 'Mã đơn',
+    dataIndex: 'id',
+    key: 'id',
+    width: 124,
+    customFilterDropdown: true,
+    onFilter: appointmentColumnFilter('id'),
+    sorter: (a: Row, b: Row) => String(a.id || '').localeCompare(String(b.id || ''), 'vi'),
+  },
+  {
+    title: 'Thuốc',
+    dataIndex: 'medicine',
+    key: 'medicine',
+    width: 260,
+    customFilterDropdown: true,
+    onFilter: appointmentColumnFilter('medicine'),
+    sorter: (a: Row, b: Row) => String(a.medicine || '').localeCompare(String(b.medicine || ''), 'vi'),
+  },
+  {
+    title: 'Số lượng',
+    dataIndex: 'quantity',
+    key: 'quantity',
+    width: 104,
+    sorter: (a: Row, b: Row) => Number(a.quantity || 0) - Number(b.quantity || 0),
+  },
+  {
+    title: 'Ghi chú',
+    dataIndex: 'note',
+    key: 'note',
+    width: 240,
+    customFilterDropdown: true,
+    onFilter: appointmentColumnFilter('note'),
+  },
+  {
+    title: 'Trạng thái',
+    dataIndex: 'status',
+    key: 'status',
+    width: 140,
+    filters: [
+      { text: 'Đã thanh toán', value: 'Đã thanh toán' },
+      { text: 'Chưa thanh toán', value: 'Chưa thanh toán' },
+      { text: 'Hoàn tất', value: 'Hoàn tất' },
+      { text: 'Đang chờ', value: 'Đang chờ' },
+      { text: 'Chưa cập nhật', value: 'Chưa cập nhật' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => String(record.status || '') === String(filterValue),
+  },
+  {
+    title: 'Thao t\u00e1c',
+    key: 'actions',
+    width: 74,
+    align: 'center' as const,
+  },
+]
+
+const prescriptionPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} đơn thuốc`,
+  locale: { items_per_page: ' / trang' },
+}))
+
 const billTableColumns = [
   {
     title: 'Mã HĐ',
     dataIndex: 'id',
     key: 'id',
-    width: 160,
+    width: 112,
     customFilterDropdown: true,
     onFilter: billColumnFilter('id'),
     sorter: (a: Row, b: Row) => String(a.id || '').localeCompare(String(b.id || ''), 'vi'),
@@ -641,33 +912,75 @@ const billTableColumns = [
     title: 'Lịch hẹn',
     dataIndex: 'appointmentId',
     key: 'appointmentId',
-    width: 180,
+    width: 104,
     customFilterDropdown: true,
     onFilter: billColumnFilter('appointmentId'),
   },
   {
-    title: 'Số tiền',
+    title: 'Ngày tạo',
+    dataIndex: 'createdAt',
+    key: 'createdAt',
+    width: 132,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('createdAt'),
+    sorter: (a: Row, b: Row) => dateTimestamp(b.createdAtValue) - dateTimestamp(a.createdAtValue),
+  },
+  {
+    title: 'Phí khám',
+    dataIndex: 'examFee',
+    key: 'examFee',
+    width: 124,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('examFee'),
+    sorter: (a: Row, b: Row) => Number(a.examFeeValue || 0) - Number(b.examFeeValue || 0),
+  },
+  {
+    title: 'Tiền thuốc',
+    dataIndex: 'medicineTotal',
+    key: 'medicineTotal',
+    width: 124,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('medicineTotal'),
+    sorter: (a: Row, b: Row) => Number(a.medicineTotalValue || 0) - Number(b.medicineTotalValue || 0),
+  },
+  {
+    title: 'Tổng tiền',
     dataIndex: 'amount',
     key: 'amount',
-    width: 210,
+    width: 138,
     customFilterDropdown: true,
     onFilter: billColumnFilter('amount'),
     sorter: (a: Row, b: Row) => Number(a.amountValue || 0) - Number(b.amountValue || 0),
   },
   {
+    title: 'Đã trả',
+    dataIndex: 'paidAmount',
+    key: 'paidAmount',
+    width: 124,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('paidAmount'),
+    sorter: (a: Row, b: Row) => Number(a.paidAmountValue || 0) - Number(b.paidAmountValue || 0),
+  },
+  {
     title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
-    width: 220,
-    customFilterDropdown: true,
-    onFilter: billColumnFilter('status'),
+    width: 144,
+    filters: [
+      { text: 'Đã thanh toán', value: 'Đã thanh toán' },
+      { text: 'Chưa thanh toán', value: 'Chưa thanh toán' },
+      { text: 'Đã hủy', value: 'Đã hủy' },
+      { text: 'Chưa cập nhật', value: 'Chưa cập nhật' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => String(record.status || '') === String(filterValue),
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 160,
-    align: 'right' as const,
-    fixed: 'right' as const,
+    width: 112,
+    align: 'center' as const,
   },
 ]
 
@@ -679,7 +992,7 @@ const billPagination = computed(() => ({
   showLessItems: true,
   showTitle: false,
   responsive: true,
-  showTotal: (total: number, range: [number, number]) => `Hiển thị ${range[0]} - ${range[1]} trên ${total} kết quả`,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} viện phí`,
   locale: { items_per_page: ' / trang' },
 }))
 
@@ -689,6 +1002,11 @@ function handleAppointmentTableChange(pagination: { current?: number; pageSize?:
 }
 
 function handleBillTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
+function handlePrescriptionTableChange(pagination: { current?: number; pageSize?: number }) {
   currentPage.value = pagination.current || 1
   itemsPerPage.value = pagination.pageSize || 10
 }
@@ -744,8 +1062,22 @@ const metrics = computed(() => {
 
 const detailTitle = computed(() => {
   if (resource.value === 'appointments') return 'Chi tiết lịch hẹn'
+  if (resource.value === 'bills') return 'Chi tiết viện phí'
   return resource.value === 'records' ? 'Chi tiết bệnh án' : 'Chi tiết đơn thuốc'
 })
+const detailIcon = computed(() => {
+  if (resource.value === 'appointments') return CalendarClock
+  if (resource.value === 'bills') return CreditCard
+  if (resource.value === 'prescriptions') return Pill
+  return FileHeart
+})
+const detailAccentClass = computed(() => {
+  if (resource.value === 'bills') return 'bg-emerald-50 text-emerald-700'
+  if (resource.value === 'prescriptions') return 'bg-cyan-50 text-cyan-700'
+  if (resource.value === 'records') return 'bg-indigo-50 text-indigo-700'
+  return 'bg-blue-50 text-[#0F52BA]'
+})
+const detailStatus = computed(() => String(detailRow.value?.status || '').trim())
 const bankTransferConfig = {
   bank: import.meta.env.VITE_BANK_TRANSFER_BANK || 'Techcombank',
   account: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT || '',
@@ -774,34 +1106,99 @@ const paymentItems = computed<[string, string][]>(() => [
   ['Nội dung chuyển khoản', paymentContent.value || 'Chưa có hóa đơn'],
   ['Mã hóa đơn', String(paymentRow.value?.id || '')],
 ])
-const detailItems = computed(() => {
+const detailSections = computed<DetailSection[]>(() => {
   const row = detailRow.value || {}
   if (resource.value === 'appointments') {
     return [
-      ['Mã lịch', row.id || ''],
-      ['Bác sĩ', row.doctorName || 'Chưa phân công'],
-      ['Chuyên khoa', row.specialtyName || 'Chưa cập nhật'],
-      ['Ngày giờ hẹn', row.dateTime || formatAppointmentDateTime(row.appointmentDate, row.slotTime)],
-      ['Lý do khám', row.reason || 'Chưa ghi nhận'],
-      ['Trạng thái', row.status || 'Chưa cập nhật'],
+      {
+        title: 'Thông tin lịch hẹn',
+        icon: CalendarClock,
+        items: [
+          { label: 'Mã lịch', value: String(row.id || 'Chưa cập nhật') },
+          { label: 'Bác sĩ', value: String(row.doctorName || 'Chưa phân công') },
+          { label: 'Chuyên khoa', value: String(row.specialtyName || 'Chưa cập nhật') },
+          { label: 'Phòng', value: String(row.room || 'Chưa cập nhật') },
+        ],
+      },
+      {
+        title: 'Thời gian và ghi chú',
+        icon: ClipboardList,
+        items: [
+          { label: 'Ngày giờ hẹn', value: String(row.dateTime || formatAppointmentDateTime(row.appointmentDate, row.slotTime) || 'Chưa cập nhật') },
+          { label: 'Trạng thái', value: String(row.status || 'Chưa cập nhật') },
+          { label: 'Lý do khám', value: String(row.reason || 'Chưa ghi nhận'), full: true },
+        ],
+      },
     ]
   }
   if (resource.value === 'records') {
     return [
-      ['Mã bệnh án', row.id || ''],
-      ['Chẩn đoán', row.diagnosis || 'Chưa có chẩn đoán'],
-      ['Triệu chứng', row.symptoms || 'Chưa ghi nhận'],
-      ['Ghi chú bác sĩ', row.doctorNotes || 'Chưa ghi chú'],
-      ['Hướng điều trị', row.treatmentPlan || 'Chưa ghi nhận'],
-      ['Ngày tái khám', row.followUpDate || 'Chưa hẹn'],
+      {
+        title: 'Thông tin hồ sơ',
+        icon: FileHeart,
+        items: [
+          { label: 'Mã bệnh án', value: String(row.id || 'Chưa cập nhật') },
+          { label: 'Ngày tái khám', value: String(row.followUpDate || 'Chưa hẹn') },
+        ],
+      },
+      {
+        title: 'Nội dung khám',
+        icon: ClipboardList,
+        items: [
+          { label: 'Chẩn đoán', value: String(row.diagnosis || 'Chưa có chẩn đoán'), full: true },
+          { label: 'Triệu chứng', value: String(row.symptoms || 'Chưa ghi nhận'), full: true },
+          { label: 'Hướng điều trị', value: String(row.treatmentPlan || 'Chưa ghi nhận'), full: true },
+          { label: 'Ghi chú bác sĩ', value: String(row.doctorNotes || 'Chưa ghi chú'), full: true },
+        ],
+      },
+    ]
+  }
+  if (resource.value === 'bills') {
+    return [
+      {
+        title: 'Thông tin hóa đơn',
+        icon: CreditCard,
+        items: [
+          { label: 'Mã hóa đơn', value: String(row.id || 'Chưa cập nhật') },
+          { label: 'Lịch hẹn', value: String(row.appointmentId || '-') },
+          { label: 'Đơn thuốc', value: String(row.prescriptionId || '-') },
+          { label: 'Trạng thái', value: String(row.status || 'Chưa cập nhật') },
+        ],
+      },
+      {
+        title: 'Chi phí',
+        icon: ClipboardList,
+        items: [
+          { label: 'Phí khám', value: String(row.examFee || formatCurrency(0)) },
+          { label: 'Tiền thuốc', value: String(row.medicineTotal || formatCurrency(0)) },
+          { label: 'Tổng tiền', value: String(row.amount || formatCurrency(0)) },
+          { label: 'Đã trả', value: String(row.paidAmount || formatCurrency(0)) },
+          { label: 'Còn lại', value: String(row.balanceDue || formatCurrency(0)) },
+        ],
+      },
+      {
+        title: 'Thanh toán',
+        icon: CalendarClock,
+        items: [
+          { label: 'Ngày tạo', value: String(row.createdAt || 'Chưa cập nhật') },
+          { label: 'Ngày thanh toán', value: String(row.paidAt || 'Chưa thanh toán') },
+          { label: 'Phương thức', value: String(row.paymentMethod || 'Chưa cập nhật') },
+        ],
+      },
     ]
   }
   return [
-    ['Mã đơn', row.id || ''],
-    ['Thuốc', row.medicine || 'Chưa có thuốc'],
-    ['Số lượng', row.quantity || '-'],
-    ['Ghi chú', row.note || 'Không có ghi chú'],
-    ['Trạng thái', row.status || 'Chưa cập nhật'],
+    {
+      title: 'Thông tin đơn thuốc',
+      icon: Pill,
+      items: [
+        { label: 'Mã đơn', value: String(row.id || 'Chưa cập nhật') },
+        { label: 'Số lượng', value: String(row.quantity || '-') },
+        { label: 'Trạng thái', value: String(row.status || 'Chưa cập nhật') },
+        { label: 'Thuốc', value: String(row.medicine || 'Chưa có thuốc'), full: true },
+        { label: 'Ghi chú', value: String(row.note || 'Không có ghi chú'), full: true },
+      ],
+    },
   ]
 })
 
@@ -828,10 +1225,18 @@ async function loadData() {
     if (resource.value === 'profile') return
     if (resource.value === 'appointments') {
       const id = patientId.value
-      rows.value = id
-        ? uniqueRows((await appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[])).map(mapAppointment))
+      if (id) {
+        const [appointments, doctorList] = await Promise.all([
+          appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[]),
+          appointmentApi.getDoctors().catch(() => [] as Doctor[]),
+        ])
+        doctors.value = doctorList
+        rows.value = uniqueRows(appointments.map(mapAppointment))
           .sort((a, b) => appointmentTimestamp(b) - appointmentTimestamp(a))
-        : []
+      } else {
+        doctors.value = []
+        rows.value = []
+      }
       note.value = ''
     }
     if (resource.value === 'records') {
@@ -867,7 +1272,6 @@ async function loadData() {
         ? uniqueRows((await billingApi.getInvoices(patientId.value)).map(mapInvoice))
         : []
       note.value = rows.value.length ? 'Đã tải viện phí của bạn.' : 'Chưa có viện phí cho bệnh nhân này.'
-      showLoadToast('Viện phí', rows.value.length, 'Nếu đã khám xong, liên hệ quầy thu ngân hoặc kiểm tra lại sau.')
     }
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
@@ -998,7 +1402,13 @@ function prescriptionDisplayCode(item: Partial<Prescription> & Record<string, an
 }
 
 function invoiceDisplayCode(item: Partial<Invoice> & Record<string, any>) {
-  return item.invoiceCode || item.invoiceIdCode || item.InvoiceCode || item.InvoiceIdCode || toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id) || 'HĐ'
+  const code = cleanDisplayText(item.invoiceCode || item.invoiceIdCode || item.InvoiceCode || item.InvoiceIdCode)
+  if (code) {
+    if (/^hđ|^hd/i.test(code)) return code
+    return /^\d+$/.test(code) ? `HĐ${code.padStart(3, '0')}` : `HĐ${code}`
+  }
+  const id = toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id)
+  return id ? `HĐ${String(id).padStart(3, '0')}` : 'HĐ'
 }
 
 function mapAppointment(item: Appointment & Record<string, any>): Row {
@@ -1007,6 +1417,7 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
   const slotTime = getAny(item, 'slotTime', 'SlotTime')
   const doctorName = cleanDisplayText(getAny(item, 'doctorName', 'DoctorName'))
   const specialtyName = cleanDisplayText(getAny(item, 'specialtyName', 'SpecialtyName'))
+  const room = appointmentRoom(item)
   const reason = cleanDisplayText(getAny(item, 'reason', 'Reason'))
   const status = getAny(item, 'status', 'Status')
 
@@ -1015,6 +1426,7 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
     appointmentId,
     doctorName: doctorName || 'Chưa phân công bác sĩ',
     specialtyName: specialtyName || 'Chưa cập nhật',
+    room: room || 'Chưa cập nhật',
     appointmentDate,
     slotTime,
     dateTime: formatAppointmentDateTime(appointmentDate, slotTime),
@@ -1022,6 +1434,16 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
     status: statusLabel(status),
     raw: item,
   }
+}
+
+function appointmentRoom(item: Appointment & Record<string, any>) {
+  const doctorId = Number(getAny(item, 'doctorId', 'DoctorId'))
+  const doctor = doctors.value.find((entry) => Number(entry.doctorId) === doctorId)
+  return cleanDisplayText(
+    getAny(doctor, 'roomNumber', 'RoomNumber', 'roomName', 'RoomName', 'room', 'Room')
+    || getAny(item, 'doctorRoom', 'DoctorRoom', 'doctorRoomNumber', 'DoctorRoomNumber', 'roomNumber', 'RoomNumber', 'roomName', 'RoomName', 'room', 'Room')
+    || getAny(getAny(item, 'doctor', 'Doctor'), 'roomNumber', 'RoomNumber', 'roomName', 'RoomName', 'room', 'Room')
+  )
 }
 
 function appointmentDisplayCode(item: Record<string, any>, appointmentId: unknown) {
@@ -1060,11 +1482,13 @@ function mapRecord(item: MedicalRecord): Row {
 
 function mapPrescription(item: Prescription & Record<string, any>): Row {
   const items = item.items || item.Items || []
-  const medicines = items.map((line: any) => line.medicineNameSnapshot || line.MedicineNameSnapshot || line.medicineName || line.MedicineName).filter(Boolean).join(', ')
+  const medicineNames = items.map((line: any) => line.medicineNameSnapshot || line.MedicineNameSnapshot || line.medicineName || line.MedicineName).filter(Boolean)
+  const medicines = medicineNames.join(', ')
   const quantity = items.reduce((total: number, line: any) => total + Number(line.quantity || line.Quantity || 0), 0)
   return {
     id: prescriptionDisplayCode(item),
     medicine: medicines || 'Chưa có thuốc',
+    medicineNames,
     quantity: quantity || '-',
     note: item.note || item.Note || 'Không có ghi chú',
     status: statusLabel(item.status || item.Status),
@@ -1072,17 +1496,63 @@ function mapPrescription(item: Prescription & Record<string, any>): Row {
   }
 }
 
+function prescriptionMedicineNames(row: Row) {
+  if (Array.isArray(row.medicineNames) && row.medicineNames.length) return row.medicineNames.map(String)
+  const medicineText = String(row.medicine || '').trim()
+  if (!medicineText || medicineText === 'Chưa có thuốc') return []
+  return medicineText.split(',').map((name) => name.trim()).filter(Boolean)
+}
+
+function medicineChipClass(index: number) {
+  return `medicine-chip-${index % 8}`
+}
+
+function medicineChipDensityClass(count: number) {
+  if (count >= 5) return 'medicine-chip-group-dense'
+  if (count >= 3) return 'medicine-chip-group-compact'
+  return 'medicine-chip-group-roomy'
+}
+
 function mapInvoice(item: Invoice & Record<string, any>): Row {
   const amount = invoiceAmount(item)
   const invoiceId = toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id)
   const invoiceCode = invoiceDisplayCode(item)
+  const appointmentId = toNumber(item.appointmentId, item.AppointmentId)
+  const status = statusLabel(item.status || item.Status)
+  const examFee = toNumber(item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee)
+  const medicineTotal = toNumber(item.medicineTotal, item.MedicineTotal)
+  const paidAmountRaw = toNumber(item.paidAmount, item.PaidAmount)
+  const paidAmount = paidAmountRaw || (String(status).toLowerCase().includes('đã thanh toán') ? amount : 0)
+  const balanceDueRaw = Number(getAny(item, 'balanceDue', 'BalanceDue'))
+  const balanceDue = Number.isFinite(balanceDueRaw) ? Math.max(balanceDueRaw, 0) : Math.max(amount - paidAmount, 0)
+  const createdAt = getAny(item, 'createdAt', 'CreatedAt')
+  const paidAt = getAny(item, 'paidAt', 'PaidAt')
+  const payments = getArrayValue(item, 'payments', 'Payments')
+  const firstPayment = payments[0]
+  const paymentMethod = cleanDisplayText(
+    getAny(firstPayment, 'paymentMethod', 'PaymentMethod', 'method', 'Method', 'channel', 'Channel')
+    || getAny(item, 'paymentMethod', 'PaymentMethod', 'method', 'Method', 'paymentChannel', 'PaymentChannel'),
+  )
   return {
     id: invoiceCode,
     invoiceId,
-    appointmentId: item.appointmentId || item.AppointmentId ? `#${item.appointmentId || item.AppointmentId}` : '-',
+    appointmentId: appointmentId ? `LH${String(appointmentId).padStart(3, '0')}` : '-',
+    prescriptionId: item.prescriptionId || item.PrescriptionId ? `#${item.prescriptionId || item.PrescriptionId}` : '-',
+    createdAt: formatDate(createdAt),
+    createdAtValue: createdAt,
+    paidAt: paidAt ? formatDate(paidAt) : (String(status).toLowerCase().includes('đã thanh toán') ? 'Chưa cập nhật' : 'Chưa thanh toán'),
+    examFee: formatCurrency(examFee),
+    examFeeValue: examFee,
+    medicineTotal: formatCurrency(medicineTotal),
+    medicineTotalValue: medicineTotal,
     amount: formatCurrency(amount),
     amountValue: amount,
-    status: statusLabel(item.status || item.Status),
+    paidAmount: formatCurrency(paidAmount),
+    paidAmountValue: paidAmount,
+    balanceDue: formatCurrency(balanceDue),
+    balanceDueValue: balanceDue,
+    paymentMethod: paymentMethodLabel(paymentMethod, status),
+    status,
     raw: item,
   }
 }
@@ -1094,11 +1564,17 @@ function openDetail(row: Row) {
     showToast('Đang xem chi tiết lịch hẹn', 'Kiểm tra bác sĩ, chuyên khoa, thời gian và trạng thái lịch hẹn.', 'success')
     return
   }
+  if (resource.value === 'bills') return
   showToast(
     resource.value === 'records' ? 'Đang xem chi tiết bệnh án' : 'Đang xem chi tiết đơn thuốc',
     resource.value === 'records' ? 'Nếu có đơn thuốc liên quan, sang mục Đơn thuốc để xem chi tiết.' : 'Nếu cần thanh toán, sang mục Viện phí để kiểm tra hóa đơn.',
     'success'
   )
+}
+
+function closeDetail() {
+  detailOpen.value = false
+  detailRow.value = null
 }
 
 function openPayment(row: Row) {
@@ -1174,6 +1650,15 @@ function getAny(source: unknown, ...keys: string[]) {
   return undefined
 }
 
+function getArrayValue(source: unknown, ...keys: string[]) {
+  const data = source as Record<string, any> | null | undefined
+  for (const key of keys) {
+    const value = data?.[key]
+    if (Array.isArray(value)) return value as Record<string, any>[]
+  }
+  return [] as Record<string, any>[]
+}
+
 function handleCitizenInput(value: string) {
   profileForm.citizenId = value.replace(/\D/g, '').slice(0, 12)
 }
@@ -1232,12 +1717,35 @@ function invoiceAmount(item: Invoice & Record<string, any>) {
   return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee)
 }
 
-function formatDate(value?: string) {
+function dateTimestamp(value: unknown) {
+  const timestamp = new Date(String(value || '')).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function paymentMethodLabel(value?: unknown, status?: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return String(status || '').toLowerCase().includes('đã thanh toán') ? 'Chưa cập nhật' : 'Chưa thanh toán'
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+  if (normalized.includes('bank') || normalized.includes('transfer') || normalized.includes('chuyen khoan') || normalized.includes('qr')) return 'Chuyển khoản'
+  if (normalized.includes('cash') || normalized.includes('tien mat')) return 'Tiền mặt'
+  if (normalized.includes('card') || normalized.includes('the')) return 'Thẻ'
+  if (normalized.includes('vnpay')) return 'VNPay'
+  if (normalized.includes('momo')) return 'MoMo'
+  return raw
+}
+
+function formatDate(value?: unknown) {
   if (!value) return 'Chưa cập nhật'
-  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const text = String(value)
+  const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (dateOnly) return `${Number(dateOnly[3])}/${Number(dateOnly[2])}/${dateOnly[1]}`
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date)
+  const date = new Date(text)
+  return Number.isNaN(date.getTime()) ? text : new Intl.DateTimeFormat('vi-VN').format(date)
 }
 
 function statusClass(status?: string) {
@@ -1387,9 +1895,20 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   font-size: 13px;
 }
 
+:deep(.appointment-table-shell .ant-table-container),
+:deep(.appointment-table-shell .ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+:deep(.appointment-table-shell .ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
 :deep(.appointment-table-shell .ant-table-thead > tr > th) {
   height: 44px;
   padding-block: 10px;
+  padding-inline: 12px;
   border-bottom: 1px solid #e8edf3;
   background: #f9fbfd;
   color: #64748b;
@@ -1398,9 +1917,11 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 }
 
 :deep(.appointment-table-shell .ant-table-tbody > tr > td) {
-  height: 52px;
-  padding-block: 11px;
+  min-height: 52px;
+  padding-block: 9px;
+  padding-inline: 12px;
   border-bottom-color: #eef2f7;
+  overflow-wrap: anywhere;
 }
 
 :deep(.appointment-table-shell .ant-table-tbody > tr:last-child > td) {
@@ -1518,11 +2039,44 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
+:deep(.appointment-action-appointment) {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+:deep(.appointment-action-prescription) {
+  border-color: #a5f3fc;
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+:deep(.appointment-action-bill) {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
 :deep(.appointment-action-button:hover) {
-  border-color: #cbd5e1;
-  background: #f1f5f9;
-  color: #334155;
   transform: translateY(-1px);
+}
+
+:deep(.appointment-action-appointment:hover) {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+:deep(.appointment-action-prescription:hover) {
+  border-color: #67e8f9;
+  background: #cffafe;
+  color: #155e75;
+}
+
+:deep(.appointment-action-bill:hover) {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
 }
 
 :deep(.appointment-action-button:focus-visible) {
@@ -1556,127 +2110,120 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   line-height: 18px;
 }
 
-.bill-table-shell {
-  overflow: hidden;
-}
-
-.bill-filter {
-  width: 260px;
-  padding: 12px;
-}
-
-.bill-filter-title {
-  color: #475569;
-  font-size: 12px;
-  font-weight: 800;
-  margin: 0 0 8px;
-}
-
-.bill-filter-actions {
+.medicine-chip-group {
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 10px;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: visible;
 }
 
-.bill-filter-reset {
-  border-color: #e2e8f0;
-  color: #64748b;
-  font-weight: 700;
-}
-
-.bill-filter-submit {
-  background: #0F52BA;
-  border-color: #0F52BA;
-  font-weight: 700;
-}
-
-:global(.ant-table-filter-dropdown .bill-filter) {
-  margin: -4px;
-}
-
-.bill-table-shell :deep(.ant-table) {
-  color: #334155;
-  font-size: 14px;
-}
-
-.bill-table-shell :deep(.ant-table-thead > tr > th) {
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  padding: 16px 20px;
-  text-transform: uppercase;
-}
-
-.bill-table-shell :deep(.ant-table-tbody > tr > td) {
-  border-bottom: 1px solid #f1f5f9;
-  padding: 18px 20px;
-  vertical-align: middle;
-}
-
-.bill-table-shell :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f8fafc;
-}
-
-.bill-table-shell :deep(.ant-table-cell-fix-right) {
-  background: #fff;
-}
-
-.bill-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
-  background: #f8fafc;
-}
-
-.bill-table-shell :deep(.ant-pagination) {
-  border-top: 1px solid #f1f5f9;
-  margin: 0;
-  padding: 16px;
-}
-
-.bill-status-tag {
-  align-items: center;
-  border-radius: 999px;
+.medicine-chip-button {
   display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 500;
   line-height: 1;
-  margin: 0;
-  padding: 8px 12px;
 }
 
-.bill-status-dot {
-  background: currentColor;
-  border-radius: 999px;
-  height: 7px;
-  width: 7px;
+.medicine-chip-group-compact {
+  gap: 3px;
+}
+
+.medicine-chip-group-compact .medicine-chip-button {
+  height: 21px;
+  padding-inline: 7px;
+  font-size: 10.75px;
+}
+
+.medicine-chip-group-dense {
+  gap: 3px;
+}
+
+.medicine-chip-group-dense .medicine-chip-button {
+  height: 19px;
+  padding-inline: 6px;
+  font-size: 10px;
+}
+
+.medicine-chip-0 {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.medicine-chip-1 {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.medicine-chip-2 {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.medicine-chip-3 {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.medicine-chip-4 {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.medicine-chip-5 {
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.medicine-chip-6 {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.medicine-chip-7 {
+  background: #f0fdfa;
+  color: #0f766e;
 }
 
 .bill-pay-button {
   align-items: center;
-  background: #0F52BA;
-  border: 1px solid #0F52BA;
-  border-radius: 999px;
-  color: #fff;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 7px;
+  color: #c2410c;
   display: inline-flex;
-  font-size: 13px;
-  font-weight: 800;
-  height: 36px;
+  font-size: 12px;
+  font-weight: 650;
+  width: 32px;
+  height: 32px;
   justify-content: center;
-  padding: 0 14px;
-  transition: background .2s, border-color .2s, opacity .2s;
+  padding: 0;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, opacity 160ms ease, transform 160ms ease;
 }
 
 .bill-pay-button:hover:not(:disabled) {
-  background: #003c90;
-  border-color: #003c90;
+  background: #ffedd5;
+  border-color: #fdba74;
+  color: #9a3412;
+  transform: translateY(-1px);
 }
 
 .bill-pay-button:disabled {
   cursor: not-allowed;
   opacity: .6;
+}
+
+.bill-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 @media (max-width: 640px) {

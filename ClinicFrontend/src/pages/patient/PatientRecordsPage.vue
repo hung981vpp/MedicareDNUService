@@ -5,8 +5,10 @@
     <div class="max-w-none mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
       <header class="px-1">
-        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">Hồ sơ bệnh án</h1>
-        
+        <h1 class="text-[1.75rem] font-bold tracking-normal text-slate-950">Hồ sơ bệnh án</h1>
+        <p class="mt-1.5 text-[13px] font-medium leading-5 text-slate-500">
+          Theo dõi chẩn đoán, ngày tạo hồ sơ, lịch tái khám và trạng thái lưu bệnh án.
+        </p>
       </header>
 
       <!-- 2. Stats Grid -->
@@ -68,105 +70,21 @@
         </div>
       </div>
 
-      <!-- 4. Bộ lọc nâng cao -->
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 class="font-bold text-slate-800 text-base">Bộ lọc tìm kiếm nâng cao</h3>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 shadow-sm"
-            @click="resetFilters"
-          >
-            <RefreshCw class="h-3.5 w-3.5" />
-            Đặt lại bộ lọc
-          </button>
-        </div>
-
-        <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          <!-- Từ khóa tìm kiếm -->
-          <label class="relative block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Từ khóa tìm kiếm</span>
-            <span class="relative block">
-              <Search class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                v-model="filters.search"
-                class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                placeholder="Tìm mã, chẩn đoán, ghi chú..."
-              />
-            </span>
-          </label>
-
-          <!-- Trạng thái -->
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái</span>
-            <select
-              v-model="filters.status"
-              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 cursor-pointer"
-            >
-              <option value="ALL">Tất cả</option>
-              <option value="COMPLETED">Đã hoàn tất</option>
-              <option value="DRAFT">Bản nháp</option>
-              <option value="IN_PROGRESS">Đang xử lý</option>
-            </select>
-          </label>
-
-          <!-- Lịch tái khám -->
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Lịch tái khám</span>
-            <select
-              v-model="filters.followUp"
-              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 cursor-pointer"
-            >
-              <option value="ALL">Tất cả</option>
-              <option value="HAS_FOLLOWUP">Có lịch tái khám</option>
-              <option value="NO_FOLLOWUP">Chưa có lịch</option>
-            </select>
-          </label>
-
-          <!-- Từ ngày (Ngày tạo) -->
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày tạo từ</span>
-            <input
-              v-model="filters.startDate"
-              type="date"
-              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 cursor-pointer"
-            />
-          </label>
-
-          <!-- Đến ngày (Ngày tạo) -->
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày tạo đến</span>
-            <input
-              v-model="filters.endDate"
-              type="date"
-              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 cursor-pointer"
-            />
-          </label>
-        </div>
-      </div>
-
       <!-- 5. Bảng danh sách hồ sơ bệnh án -->
       <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
         {{ error }}
       </div>
 
-      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div class="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
-          <span class="text-sm font-semibold text-slate-500">
-            Tổng số {{ filteredRecords.length }} kết quả bệnh án
-          </span>
-        </div>
-
-        <div v-if="filteredRecords.length" class="medical-record-table-shell">
-          <ATable
-            :columns="medicalRecordTableColumns"
-            :data-source="filteredRecords"
-            :pagination="medicalRecordPagination"
-            :row-key="recordIdentity"
-            :scroll="{ x: 1120 }"
-            size="middle"
-            @change="handleMedicalRecordTableChange"
-          >
+      <div class="medical-record-table-shell">
+        <ATable
+          :columns="medicalRecordTableColumns"
+          :data-source="filteredRecords"
+          :pagination="medicalRecordPagination"
+          :row-key="recordIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleMedicalRecordTableChange"
+        >
             <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
               <div class="medical-record-filter">
                 <p class="medical-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
@@ -186,8 +104,9 @@
                 </div>
               </div>
             </template>
-            <template #customFilterIcon="{ filtered }">
-              <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <template #customFilterIcon="{ filtered, column }">
+              <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+              <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
             </template>
             <template #emptyText>
               <div class="py-8 text-center">
@@ -198,18 +117,21 @@
             </template>
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'code'">
-                <span class="font-bold text-slate-950">{{ recordCode(record) }}</span>
+                <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ recordCode(record) }}</span>
               </template>
               <template v-else-if="column.key === 'diagnosis'">
-                <span class="line-clamp-2 max-w-sm text-[13px] font-semibold leading-5 text-slate-800" :title="recordDiagnosis(record)">
+                <span class="line-clamp-2 max-w-sm text-[13px] font-medium leading-5 text-slate-700" :title="recordDiagnosis(record)">
                   {{ recordDiagnosis(record) }}
                 </span>
               </template>
               <template v-else-if="column.key === 'diagnosisCode'">
-                <span class="font-mono text-xs font-semibold text-slate-600">{{ record.diagnosisCode || '-' }}</span>
+                <span class="font-mono text-xs font-medium text-slate-600">{{ record.diagnosisCode || '-' }}</span>
               </template>
               <template v-else-if="column.key === 'createdAt'">
-                <span class="whitespace-nowrap text-[13px] font-medium text-slate-500">{{ formatDate(record.createdAt) }}</span>
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+                  <span class="text-[13px] font-medium text-slate-600">{{ formatDate(record.createdAt) }}</span>
+                </div>
               </template>
               <template v-else-if="column.key === 'followUpDate'">
                 <ATag v-if="record.followUpDate" :bordered="false" class="medical-follow-tag">{{ formatDate(record.followUpDate) }}</ATag>
@@ -217,7 +139,6 @@
               </template>
               <template v-else-if="column.key === 'status'">
                 <ATag :bordered="false" :class="['medical-status-tag', statusClass(record.status)]">
-                  <span class="medical-status-dot"></span>
                   {{ statusLabel(record.status) }}
                 </ATag>
               </template>
@@ -225,33 +146,19 @@
                 <div class="medical-record-actions">
                   <button type="button" class="medical-record-action-button medical-record-action-primary" title="Xem chi tiết bệnh án" @click="openDetails(record)">
                     <Eye class="h-4 w-4" />
-                    <span>Chi tiết</span>
                   </button>
                   <button type="button" class="medical-record-action-button medical-record-action-muted" title="In hồ sơ bệnh án" @click="printMedicalRecord(record)">
                     <Printer class="h-4 w-4" />
-                    <span>In</span>
                   </button>
                 </div>
               </template>
             </template>
-          </ATable>
-        </div>
-
-        <!-- Empty state -->
-        <div v-else class="p-16 text-center">
-          <span class="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 mx-auto">
-            <FileHeart class="h-7 w-7" />
-          </span>
-          <h3 class="mt-4 text-lg font-bold text-slate-900">Không tìm thấy hồ sơ bệnh án</h3>
-          <p class="mx-auto mt-2 max-w-md text-sm text-slate-500 leading-relaxed">
-            Hệ thống chưa có bệnh án khớp với bộ lọc của bạn hoặc chưa hoàn thành lượt khám nào. Vui lòng thử reset bộ lọc hoặc kiểm tra lại lịch hẹn.
-          </p>
-        </div>
+        </ATable>
       </div>
     </div>
 
     <!-- 7. Drawer Chi tiết bệnh án bên phải -->
-    <div v-if="drawerOpen" class="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDrawer"></div>
+    <div v-if="drawerOpen" class="fixed inset-0 z-[90] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDrawer"></div>
 
     <transition
       enter-active-class="transition duration-300 ease-out"
@@ -261,20 +168,25 @@
       leave-from-class="translate-x-0"
       leave-to-class="translate-x-full"
     >
-      <div v-if="drawerOpen" class="fixed right-0 top-0 z-50 h-screen w-full max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
+      <div v-if="drawerOpen" class="fixed right-0 top-0 z-[90] h-screen w-full max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
         
         <!-- Drawer Header -->
-        <div class="flex items-center justify-between border-b border-slate-100 p-5 bg-slate-50/50">
-          <div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-slate-900">Chi tiết bệnh án</h2>
-              <span :class="['rounded-full px-2 py-0.5 text-[10px] font-bold', statusClass(selectedRecord?.status)]">
-                {{ statusLabel(selectedRecord?.status) }}
-              </span>
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+          <div class="flex items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+              <FileHeart class="h-5 w-5" />
+            </span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-lg font-bold text-slate-900">Chi tiết bệnh án</h2>
+                <span :class="['rounded-full px-2 py-0.5 text-[10px] font-bold', statusClass(selectedRecord?.status)]">
+                  {{ statusLabel(selectedRecord?.status) }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs font-semibold text-slate-500 font-mono">
+                Mã: {{ selectedRecord?.medicalRecordCode || 'Chưa cập nhật' }}
+              </p>
             </div>
-            <p class="mt-1 text-xs font-semibold text-slate-500 font-mono">
-              Mã: {{ selectedRecord?.medicalRecordCode || 'Chưa cập nhật' }}
-            </p>
           </div>
           <div class="flex items-center gap-2">
             <BaseButton
@@ -300,13 +212,14 @@
             :key="tab.key"
             type="button"
             :class="[
-              'px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition relative',
+              'inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition relative',
               currentTab === tab.key
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             ]"
             @click="currentTab = tab.key"
           >
+            <component :is="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
           </button>
         </div>
@@ -488,11 +401,11 @@
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4 flex items-center justify-between">
                   <div>
                     <span class="text-xs font-semibold text-slate-400">Mã đơn thuốc</span>
-                    <p class="mt-0.5 font-mono font-bold text-slate-800">{{ activePrescription.prescriptionCode || 'Chưa cập nhật' }}</p>
+                    <p class="mt-0.5 font-mono font-bold text-slate-800">{{ prescriptionDisplayCode(activePrescription) }}</p>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                      {{ activePrescription.status || 'Chờ phát thuốc' }}
+                      {{ statusLabel(activePrescription.status) }}
                     </span>
                   </div>
                 </div>
@@ -568,7 +481,7 @@
                 <div class="space-y-2 text-xs text-slate-500">
                   <div class="flex justify-between">
                     <span>Phương thức thanh toán:</span>
-                    <span class="font-bold text-slate-700">{{ activeInvoice.payments?.[0]?.paymentMethod || 'Tiền mặt/Chuyển khoản' }}</span>
+                    <span class="font-bold text-slate-700">{{ invoicePaymentMethodLabel(activeInvoice) }}</span>
                   </div>
                   <div class="flex justify-between">
                     <span>Ngày thanh toán:</span>
@@ -727,7 +640,7 @@
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Đơn thuốc</h2>
           <template v-if="activePrescription">
             <div class="grid grid-cols-2 gap-y-2 text-xs mb-3">
-              <div><span class="font-bold text-slate-500">Mã đơn thuốc:</span> <span class="font-semibold text-slate-800 font-mono">{{ activePrescription.prescriptionCode || activePrescription.prescriptionIdCode || activePrescription.prescriptionId || activePrescription.id || 'Chưa cập nhật' }}</span></div>
+              <div><span class="font-bold text-slate-500">Mã đơn thuốc:</span> <span class="font-semibold text-slate-800 font-mono">{{ prescriptionDisplayCode(activePrescription) }}</span></div>
               <div><span class="font-bold text-slate-500">Ngày kê đơn:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(activePrescription.createdAt || activePrescription.submittedAt) }}</span></div>
               <div><span class="font-bold text-slate-500">Trạng thái:</span> <span class="font-semibold text-slate-800">{{ statusLabel(activePrescription.status) }}</span></div>
               <div><span class="font-bold text-slate-500">Bác sĩ kê đơn:</span> <span class="font-semibold text-slate-800">{{ associatedDoctorNameForPrescription(activePrescription) || doctorNameForRecord(recordToPrint) || 'Chưa có thông tin' }}</span></div>
@@ -771,6 +684,7 @@
               <div><span class="font-bold text-slate-500">Phí khám:</span> <span class="font-semibold text-slate-800">{{ formatCurrency(activeInvoice.examinationFee || activeInvoice.examFee) }}</span></div>
               <div><span class="font-bold text-slate-500">Tiền thuốc:</span> <span class="font-semibold text-slate-800">{{ formatCurrency(activeInvoice.medicineTotal) }}</span></div>
               <div><span class="font-bold text-slate-500">Tổng cộng:</span> <span class="font-bold text-slate-900">{{ formatCurrency(activeInvoice.totalAmount || activeInvoice.amount) }}</span></div>
+              <div><span class="font-bold text-slate-500">Phương thức thanh toán:</span> <span class="font-semibold text-slate-800">{{ invoicePaymentMethodLabel(activeInvoice) }}</span></div>
               <div><span class="font-bold text-slate-500">{{ isPaidInvoice(activeInvoice.status) ? 'Ngày thanh toán:' : 'Ngày lập hóa đơn:' }}</span> <span class="font-semibold text-slate-800">{{ formatDateTime(activeInvoice.paidAt || activeInvoice.createdAt) }}</span></div>
             </div>
           </template>
@@ -804,6 +718,7 @@ import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from
 import {
   CalendarClock,
   CheckCircle2,
+  CheckSquare,
   ClipboardList,
   CreditCard,
   Eye,
@@ -811,7 +726,6 @@ import {
   FilePenLine,
   Pill,
   Printer,
-  RefreshCw,
   Search,
   ShieldAlert,
   User,
@@ -877,22 +791,13 @@ const printVitalItems = computed(() => {
 const printVitalNote = computed(() => String(readFirst(printVitalSigns.value, 'note', 'Note') || '').trim())
 
 const tabs = [
-  { key: 'overview', label: 'Tổng quan' },
-  { key: 'diagnosis', label: 'Chẩn đoán' },
-  { key: 'treatment', label: 'Điều trị' },
-  { key: 'history', label: 'Lịch sử' },
-  { key: 'prescription', label: 'Đơn thuốc' },
-  { key: 'billing', label: 'Viện phí' },
+  { key: 'overview', label: 'Tổng quan', icon: ClipboardList },
+  { key: 'diagnosis', label: 'Chẩn đoán', icon: FileHeart },
+  { key: 'treatment', label: 'Điều trị', icon: FilePenLine },
+  { key: 'history', label: 'Lịch sử', icon: CalendarClock },
+  { key: 'prescription', label: 'Đơn thuốc', icon: Pill },
+  { key: 'billing', label: 'Viện phí', icon: CreditCard },
 ]
-
-// Filters
-const filters = reactive({
-  search: '',
-  status: 'ALL',
-  followUp: 'ALL',
-  startDate: '',
-  endDate: '',
-})
 
 // Toasts
 const toast = reactive({
@@ -916,75 +821,17 @@ const stats = computed(() => {
   return { total, completed, draft, followUp }
 })
 
-const filteredRecords = computed(() => {
-  return medicalRecords.value.filter(record => {
-    // 1. Search Query filter
-    if (filters.search.trim()) {
-      const q = filters.search.trim().toLowerCase()
-      const matchesSearch = 
-        String(record.medicalRecordCode || '').toLowerCase().includes(q) ||
-        String(record.diagnosisCode || '').toLowerCase().includes(q) ||
-        String(record.diagnosisText || record.diagnosis || '').toLowerCase().includes(q) ||
-        String(record.doctorNote || record.doctorNotes || '').toLowerCase().includes(q) ||
-        String(record.treatmentPlan || '').toLowerCase().includes(q)
-      if (!matchesSearch) return false
-    }
-
-    // 2. Status filter
-    if (filters.status !== 'ALL') {
-      const s = String(record.status || '').toUpperCase()
-      if (filters.status === 'COMPLETED' && !['ĐÃ HOÀN TẤT', 'COMPLETED', 'DONE'].includes(s)) return false
-      if (filters.status === 'DRAFT' && !['BẢN NHÁP', 'DRAFT'].includes(s)) return false
-      if (filters.status === 'IN_PROGRESS' && !['ĐANG XỬ LÝ', 'IN_PROGRESS'].includes(s)) return false
-    }
-
-    // 3. Follow up filter
-    if (filters.followUp !== 'ALL') {
-      const hasFollowUp = record.followUpDate !== null && record.followUpDate !== undefined && record.followUpDate !== ''
-      if (filters.followUp === 'HAS_FOLLOWUP' && !hasFollowUp) return false
-      if (filters.followUp === 'NO_FOLLOWUP' && hasFollowUp) return false
-    }
-
-    // 4. Date range filter
-    const createdDate = record.createdAt ? new Date(record.createdAt) : null
-    if (createdDate) {
-      if (filters.startDate) {
-        const start = new Date(filters.startDate)
-        start.setHours(0, 0, 0, 0)
-        if (createdDate < start) return false
-      }
-      if (filters.endDate) {
-        const end = new Date(filters.endDate)
-        end.setHours(23, 59, 59, 999)
-        if (createdDate > end) return false
-      }
-    }
-
-    return true
-  })
-})
+const filteredRecords = computed(() => medicalRecords.value)
 
 // Pagination
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
-watch(filters, () => {
-  currentPage.value = 1
-})
-
-const totalPages = computed(() => Math.ceil(filteredRecords.value.length / itemsPerPage.value))
-
-const paginatedRecords = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return filteredRecords.value.slice(start, end)
-})
-
 const medicalRecordTableColumns = [
   {
     title: 'Mã BA',
     key: 'code',
-    width: 150,
+    width: 112,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('code'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordCode(a).localeCompare(recordCode(b), 'vi'),
@@ -992,7 +839,7 @@ const medicalRecordTableColumns = [
   {
     title: 'Chẩn đoán',
     key: 'diagnosis',
-    minWidth: 260,
+    width: 250,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('diagnosis'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordDiagnosis(a).localeCompare(recordDiagnosis(b), 'vi'),
@@ -1001,7 +848,7 @@ const medicalRecordTableColumns = [
     title: 'Mã ICD',
     dataIndex: 'diagnosisCode',
     key: 'diagnosisCode',
-    width: 170,
+    width: 146,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('diagnosisCode'),
   },
@@ -1009,7 +856,7 @@ const medicalRecordTableColumns = [
     title: 'Ngày tạo',
     dataIndex: 'createdAt',
     key: 'createdAt',
-    width: 170,
+    width: 142,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('createdAt'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.createdAt) - recordTimestamp(b.createdAt),
@@ -1019,7 +866,7 @@ const medicalRecordTableColumns = [
     title: 'Tái khám',
     dataIndex: 'followUpDate',
     key: 'followUpDate',
-    width: 170,
+    width: 136,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('followUpDate'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.followUpDate) - recordTimestamp(b.followUpDate),
@@ -1028,16 +875,22 @@ const medicalRecordTableColumns = [
     title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
-    width: 210,
-    customFilterDropdown: true,
-    onFilter: recordColumnFilter('status'),
+    width: 156,
+    filters: [
+      { text: 'Đã hoàn tất', value: 'Đã hoàn tất' },
+      { text: 'Bản nháp', value: 'Bản nháp' },
+      { text: 'Đang xử lý', value: 'Đang xử lý' },
+      { text: 'Chưa cập nhật', value: 'Chưa cập nhật' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: MedicalRecord) => statusLabel(record.status) === String(filterValue),
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 180,
-    align: 'right' as const,
-    fixed: 'right' as const,
+    width: 104,
+    align: 'center' as const,
   },
 ]
 
@@ -1049,7 +902,7 @@ const medicalRecordPagination = computed(() => ({
   showLessItems: true,
   showTitle: false,
   responsive: true,
-  showTotal: (total: number, range: [number, number]) => `Hiển thị ${range[0]} - ${range[1]} trên ${total} kết quả`,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} bệnh án`,
   locale: { items_per_page: ' / trang' },
 }))
 
@@ -1333,14 +1186,6 @@ async function loadBillingData(record: MedicalRecord) {
   }
 }
 
-function resetFilters() {
-  filters.search = ''
-  filters.status = 'ALL'
-  filters.followUp = 'ALL'
-  filters.startDate = ''
-  filters.endDate = ''
-}
-
 function currentPrintDateTime() {
   return formatDateTime(new Date().toISOString())
 }
@@ -1474,6 +1319,10 @@ function mergePrescriptionForPrint(n2?: Prescription, n3?: Prescription): Prescr
   return {
     ...(n2 || {}),
     ...(n3 || {}),
+    prescriptionCode: objectValue(n3, 'prescriptionCode', 'PrescriptionCode') || objectValue(n2, 'prescriptionCode', 'PrescriptionCode'),
+    prescriptionIdCode: objectValue(n3, 'prescriptionIdCode', 'PrescriptionIdCode') || objectValue(n2, 'prescriptionIdCode', 'PrescriptionIdCode'),
+    prescriptionId: objectValue(n3, 'prescriptionId', 'PrescriptionId') || objectValue(n2, 'prescriptionId', 'PrescriptionId'),
+    id: objectValue(n3, 'id', 'Id') || objectValue(n2, 'id', 'Id'),
     items: n3Items.length ? n3Items : n2Items,
     prescriptionItems: n3Items.length ? n3Items : n2Items,
     status: n3?.status || n2?.status,
@@ -1643,6 +1492,59 @@ function formatCurrency(value?: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }
 
+function prescriptionDisplayCode(prescription?: Prescription | null) {
+  const code = objectValue(
+    prescription,
+    'prescriptionCode',
+    'PrescriptionCode',
+    'prescriptionIdCode',
+    'PrescriptionIdCode',
+    'code',
+    'Code',
+  )
+  if (code) return String(code)
+  const id = objectValue(prescription, 'prescriptionId', 'PrescriptionId', 'id', 'Id')
+  const numericId = Number(id)
+  if (Number.isFinite(numericId) && numericId > 0) return `DT${String(numericId).padStart(3, '0')}`
+  return 'Chưa cập nhật'
+}
+
+function invoicePaymentMethodLabel(invoice?: Invoice | null) {
+  const invoiceData = invoice as Record<string, any> | null | undefined
+  const payments = getArrayValue(invoiceData, 'payments', 'Payments')
+  const payment = payments[0]
+  const value = objectValue(payment, 'paymentMethod', 'PaymentMethod', 'method', 'Method', 'channel', 'Channel')
+    || objectValue(invoiceData, 'paymentMethod', 'PaymentMethod', 'method', 'Method', 'paymentChannel', 'PaymentChannel')
+  return paymentMethodLabel(value, String(invoiceData?.status || invoiceData?.Status || ''))
+}
+
+function paymentMethodLabel(value: unknown, status?: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return isPaidInvoice(status) ? 'Chưa cập nhật' : 'Chưa thanh toán'
+
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+
+  if (normalized.includes('cash') || normalized.includes('tien mat')) return 'Tiền mặt'
+  if (normalized.includes('bank') || normalized.includes('transfer') || normalized.includes('chuyen khoan') || normalized.includes('qr')) return 'Chuyển khoản'
+  if (normalized.includes('card') || normalized.includes('the')) return 'Thẻ'
+  if (normalized.includes('vnpay')) return 'VNPay'
+  if (normalized.includes('momo')) return 'MoMo'
+  return raw
+}
+
+function getArrayValue(source: Record<string, any> | null | undefined, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source?.[key]
+    if (Array.isArray(value)) return value as Record<string, any>[]
+  }
+  return [] as Record<string, any>[]
+}
+
 function genderLabel(value?: string) {
   const normalized = String(value || '').toLowerCase()
   if (normalized === 'male' || normalized === 'nam') return 'Nam'
@@ -1653,6 +1555,10 @@ function genderLabel(value?: string) {
 function statusLabel(status?: string) {
   const value = String(status || '').toLowerCase()
   if (value.includes('completed') || value.includes('done') || value.includes('hoàn tất')) return 'Đã hoàn tất'
+  if (value.includes('dispensed') || value.includes('cấp thuốc') || value.includes('cap thuoc')) return 'Đã cấp thuốc'
+  if (value.includes('sent_to_pharmacy') || value.includes('sent to pharmacy') || value.includes('nhà thuốc') || value.includes('nha thuoc')) return 'Đã gửi nhà thuốc'
+  if (value.includes('pending') || value.includes('waiting') || value.includes('chờ') || value.includes('cho')) return 'Chờ xử lý'
+  if (value.includes('cancel') || value.includes('hủy') || value.includes('huy')) return 'Đã hủy'
   if (value.includes('draft') || value.includes('bản nháp')) return 'Bản nháp'
   if (value.includes('progress') || value.includes('đang xử lý')) return 'Đang xử lý'
   return status || 'Chưa cập nhật'
@@ -1660,9 +1566,11 @@ function statusLabel(status?: string) {
 
 function statusClass(status?: string) {
   const value = String(status || '').toLowerCase()
-  if (value.includes('completed') || value.includes('done') || value.includes('hoàn tất')) return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+  if (value.includes('completed') || value.includes('done') || value.includes('hoàn tất') || value.includes('dispensed') || value.includes('cấp thuốc') || value.includes('cap thuoc')) return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
   if (value.includes('draft') || value.includes('bản nháp')) return 'bg-amber-50 text-amber-700 border border-amber-100'
-  if (value.includes('progress') || value.includes('đang xử lý')) return 'bg-blue-50 text-blue-700 border border-blue-100'
+  if (value.includes('progress') || value.includes('đang xử lý') || value.includes('sent_to_pharmacy') || value.includes('sent to pharmacy')) return 'bg-blue-50 text-blue-700 border border-blue-100'
+  if (value.includes('pending') || value.includes('waiting') || value.includes('chờ') || value.includes('cho')) return 'bg-amber-50 text-amber-700 border border-amber-100'
+  if (value.includes('cancel') || value.includes('hủy') || value.includes('huy')) return 'bg-rose-50 text-rose-700 border border-rose-100'
   return 'bg-slate-50 text-slate-700 border border-slate-100'
 }
 
@@ -1697,46 +1605,95 @@ function isPaidInvoice(status?: string) {
 
 .medical-record-table-shell {
   overflow: hidden;
+  border: 1px solid #e5eaf1;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 0.035);
 }
 
 .medical-record-table-shell :deep(.ant-table) {
   color: #334155;
-  font-size: 14px;
+  font-size: 13px;
+}
+
+.medical-record-table-shell :deep(.ant-table-container),
+.medical-record-table-shell :deep(.ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+.medical-record-table-shell :deep(.ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
 }
 
 .medical-record-table-shell :deep(.ant-table-thead > tr > th) {
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  height: 44px;
+  background: #f9fbfd;
+  border-bottom: 1px solid #e8edf3;
   color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  padding: 16px 20px;
-  text-transform: uppercase;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding-block: 10px;
+  padding-inline: 12px;
 }
 
 .medical-record-table-shell :deep(.ant-table-tbody > tr > td) {
-  border-bottom: 1px solid #f1f5f9;
-  padding: 18px 20px;
+  height: 52px;
+  border-bottom-color: #eef2f7;
+  padding-block: 11px;
+  padding-inline: 12px;
   vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.medical-record-table-shell :deep(.ant-table-tbody > tr:last-child > td) {
+  border-bottom: 0;
 }
 
 .medical-record-table-shell :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f8fafc;
+  background: #f7faff;
 }
 
-.medical-record-table-shell :deep(.ant-table-cell-fix-right) {
-  background: #fff;
+.medical-record-table-shell :deep(.ant-table-tbody > tr > td.ant-table-cell-fix-right),
+.medical-record-table-shell :deep(.ant-table-thead > tr > th.ant-table-cell-fix-right) {
+  background: #ffffff;
 }
 
 .medical-record-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
-  background: #f8fafc;
+  background: #f7faff;
 }
 
 .medical-record-table-shell :deep(.ant-pagination) {
-  border-top: 1px solid #f1f5f9;
+  min-height: 58px;
+  border-top: 1px solid #eef2f7;
+  background: #fbfcfe;
+  gap: 4px;
   margin: 0;
-  padding: 16px;
+  padding: 13px 16px;
+}
+
+.medical-record-table-shell :deep(.ant-table-cell-fix-right-first::after) {
+  box-shadow: inset -8px 0 8px -8px rgb(15 23 42 / 0.16);
+}
+
+.medical-record-table-shell :deep(.ant-table-column-sorter),
+.medical-record-table-shell :deep(.ant-table-filter-trigger) {
+  color: #94a3b8;
+  opacity: 0.45;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.medical-record-table-shell :deep(th:hover .ant-table-column-sorter),
+.medical-record-table-shell :deep(th:hover .ant-table-filter-trigger),
+.medical-record-table-shell :deep(.ant-table-filter-trigger.active) {
+  opacity: 1;
+}
+
+.medical-record-table-shell :deep(.ant-table-filter-trigger:hover),
+.medical-record-table-shell :deep(.ant-table-filter-trigger.active),
+.medical-record-table-shell :deep(.ant-table-column-sorter-up.active),
+.medical-record-table-shell :deep(.ant-table-column-sorter-down.active) {
+  color: #0f52ba;
 }
 
 .medical-record-filter {
@@ -1747,7 +1704,7 @@ function isPaidInvoice(status?: string) {
 .medical-record-filter-title {
   color: #475569;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 650;
   margin: 0 0 8px;
 }
 
@@ -1761,26 +1718,26 @@ function isPaidInvoice(status?: string) {
 .medical-record-filter-reset {
   border-color: #e2e8f0;
   color: #64748b;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .medical-record-filter-submit {
   background: #0F52BA;
   border-color: #0F52BA;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .medical-follow-tag,
 .medical-status-tag {
   align-items: center;
+  border: 0 !important;
   border-radius: 999px;
   display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  gap: 6px;
-  line-height: 1;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
   margin: 0;
-  padding: 8px 12px;
+  padding: 2px 9px;
 }
 
 .medical-follow-tag {
@@ -1788,55 +1745,117 @@ function isPaidInvoice(status?: string) {
   color: #1d4ed8;
 }
 
-.medical-status-dot {
-  background: currentColor;
-  border-radius: 999px;
-  height: 7px;
-  width: 7px;
+.medical-follow-tag :deep(svg) {
+  display: none;
 }
 
 .medical-record-actions {
   display: inline-flex;
-  flex-wrap: wrap;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .medical-record-action-button {
   align-items: center;
-  border-radius: 999px;
+  border-radius: 7px;
   display: inline-flex;
-  font-size: 13px;
-  font-weight: 800;
-  gap: 8px;
-  height: 36px;
+  height: 32px;
   justify-content: center;
-  padding: 0 14px;
-  transition: background .2s, border-color .2s, color .2s;
+  width: 32px;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .medical-record-action-primary {
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  color: #1d4ed8;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
 }
 
 .medical-record-action-primary:hover {
-  background: #dbeafe;
-  border-color: #bfdbfe;
-  color: #0F52BA;
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+  color: #3730a3;
+  transform: translateY(-1px);
 }
 
 .medical-record-action-muted {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
 }
 
 .medical-record-action-muted:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #334155;
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+  transform: translateY(-1px);
+}
+
+.medical-record-action-button:focus-visible {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 2px;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-total-text) {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 30px;
+  margin-right: auto;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-item),
+.medical-record-table-shell :deep(.ant-pagination-prev .ant-pagination-item-link),
+.medical-record-table-shell :deep(.ant-pagination-next .ant-pagination-item-link) {
+  min-width: 30px;
+  height: 30px;
+  margin-inline-end: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  line-height: 28px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-item:hover),
+.medical-record-table-shell :deep(.ant-pagination-prev:not(.ant-pagination-disabled) .ant-pagination-item-link:hover),
+.medical-record-table-shell :deep(.ant-pagination-next:not(.ant-pagination-disabled) .ant-pagination-item-link:hover) {
+  background: #eaf2ff;
+  border-color: transparent;
+  color: #0f52ba;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-item-active) {
+  background: #0f52ba;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgb(15 82 186 / 0.2);
+}
+
+.medical-record-table-shell :deep(.ant-pagination-item-active:hover) {
+  background: #003c90;
+  border-color: transparent;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-item-active a),
+.medical-record-table-shell :deep(.ant-pagination-item-active:hover a),
+.medical-record-table-shell :deep(.ant-pagination-item-active:focus a) {
+  color: #ffffff;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-options) {
+  margin-inline-start: 8px;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-options .ant-select-selector) {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 12px;
+  height: 30px;
+}
+
+.medical-record-table-shell :deep(.ant-pagination-options .ant-select-selection-item) {
+  line-height: 28px;
 }
 </style>
 

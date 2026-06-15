@@ -6,7 +6,8 @@
 
 <script setup lang="ts">
 import {
-  CalendarCheck,
+  CalendarClock,
+  CalendarPlus,
   CreditCard,
   FileHeart,
   LayoutDashboard,
@@ -25,8 +26,8 @@ const menuGroups = [
   {
     title: 'Dịch vụ',
     items: [
-      { label: 'Đặt lịch khám', to: '/patient/booking', icon: CalendarCheck },
-      { label: 'Lịch hẹn', to: '/patient/appointments', icon: CalendarCheck },
+      { label: 'Đặt lịch khám', to: '/patient/booking', icon: CalendarPlus },
+      { label: 'Lịch hẹn', to: '/patient/appointments', icon: CalendarClock },
       { label: 'Hồ sơ bệnh án', to: '/patient/records', icon: FileHeart },
       { label: 'Đơn thuốc', to: '/patient/prescriptions', icon: Pill },
       { label: 'Viện phí', to: '/patient/bills', icon: CreditCard },
