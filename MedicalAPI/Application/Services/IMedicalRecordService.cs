@@ -5,11 +5,12 @@ namespace MedicalAPI.Application.Services;
 
 public interface IMedicalRecordService
 {
-    Result<PagedList<PatientSummaryDto>> SearchPatients(string? keyword, int pageNumber, int pageSize);
+    Result<PagedList<PatientDetailDto>> SearchPatients(string? keyword, int pageNumber, int pageSize);
     Result<PatientDetailDto> GetPatient(int id);
     Result<PatientDetailDto> GetPatientByKey(string patientKey, int? currentUserId, int? currentPatientId, string? currentEmail, string? currentFullName);
-    Result<PatientSummaryDto> CreatePatient(PatientCreateRequest request);
+    Result<PatientDetailDto> CreatePatient(PatientCreateRequest request);
     Result<PatientDetailDto> UpdatePatient(int id, PatientUpdateRequest request);
+    Result<bool> DeletePatient(int id);
     Result<PatientDetailDto> UpdateCurrentPatient(PatientUpdateRequest request);
     Result<PatientHistoryDto> GetPatientHistory(int id);
     Result<PatientHistoryDto> GetPatientHistoryByKey(string patientKey, int? currentUserId, int? currentPatientId, string? currentEmail, string? currentFullName);

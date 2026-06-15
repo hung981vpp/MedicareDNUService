@@ -10,6 +10,7 @@ using MedicalAPI.Domain.Constants;
 using MedicalAPI.Domain.Entities;
 using MedicalAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace MedicalAPI.Application.Services;
 
@@ -22,7 +23,7 @@ public sealed class MedicalRecordService(
 {
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
-    public Result<PagedList<PatientSummaryDto>> SearchPatients(string? keyword, int pageNumber, int pageSize)
+    public Result<PagedList<PatientDetailDto>> SearchPatients(string? keyword, int pageNumber, int pageSize)
     {
         var normalized = keyword?.Trim();
         var query = db.Patients
@@ -36,13 +37,13 @@ public sealed class MedicalRecordService(
         if (IsCurrentPatient())
         {
             var currentPatientId = CurrentPatientIdFromClaims();
-            if (currentPatientId is null) return Forbidden<PagedList<PatientSummaryDto>>("Token bệnh nhân thiếu PatientId");
+            if (currentPatientId is null) return Forbidden<PagedList<PatientDetailDto>>("Token bệnh nhân thiếu PatientId");
             query = query.Where(p => p.Id == currentPatientId.Value);
         }
         else if (IsCurrentDoctor())
         {
             var currentDoctorId = CurrentDoctorId();
-            if (currentDoctorId is null) return Forbidden<PagedList<PatientSummaryDto>>("Token bác sĩ thiếu DoctorId");
+            if (currentDoctorId is null) return Forbidden<PagedList<PatientDetailDto>>("Token bác sĩ thiếu DoctorId");
             query = query.Where(p =>
                 db.Visits.Any(v => v.PatientId == p.Id && v.DoctorId == currentDoctorId.Value)
                 || db.MedicalRecords.Any(r => r.PatientId == p.Id && r.DoctorId == currentDoctorId.Value));
@@ -50,11 +51,11 @@ public sealed class MedicalRecordService(
 
         var patients = query
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => ToSummary(p))
+            .Select(p => ToDetail(p))
             .ToList();
 
-        return Result<PagedList<PatientSummaryDto>>.Ok(
-            PagedList<PatientSummaryDto>.Create(patients, pageNumber, pageSize),
+        return Result<PagedList<PatientDetailDto>>.Ok(
+            PagedList<PatientDetailDto>.Create(patients, pageNumber, pageSize),
             "Lấy danh sách bệnh nhân thành công");
     }
 
@@ -93,10 +94,10 @@ public sealed class MedicalRecordService(
         return GetPatient(patientId.Value);
     }
 
-    public Result<PatientSummaryDto> CreatePatient(PatientCreateRequest request)
+    public Result<PatientDetailDto> CreatePatient(PatientCreateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.FullName))
-            return Invalid<PatientSummaryDto>("Dữ liệu không hợp lệ", "fullName", "REQUIRED", "Họ tên không được để trống");
+            return Invalid<PatientDetailDto>("Dữ liệu không hợp lệ", "fullName", "REQUIRED", "Họ tên không được để trống");
 
         var patient = new Patient
         {
@@ -117,7 +118,7 @@ public sealed class MedicalRecordService(
         patient.PatientCode = $"BN{patient.Id:D3}";
         db.SaveChanges();
 
-        return Result<PatientSummaryDto>.Ok(ToSummary(patient), "Tạo hồ sơ bệnh nhân thành công", StatusCodes.Status201Created);
+        return Result<PatientDetailDto>.Ok(ToDetail(patient), "Tạo hồ sơ bệnh nhân thành công", StatusCodes.Status201Created);
     }
 
     public Result<PatientDetailDto> UpdatePatient(int id, PatientUpdateRequest request)
@@ -139,6 +140,32 @@ public sealed class MedicalRecordService(
         db.SaveChanges();
 
         return Result<PatientDetailDto>.Ok(ToDetail(patient), "Cập nhật hồ sơ bệnh nhân thành công");
+    }
+
+    public Result<bool> DeletePatient(int id)
+    {
+        var patient = FindPatient(id);
+        if (patient is null) return NotFound<bool>("Không tìm thấy bệnh nhân");
+
+        var hasClinicalData = db.Visits.Any(v => v.PatientId == id)
+            || db.MedicalRecords.Any(r => r.PatientId == id)
+            || db.Prescriptions.Any(p => p.PatientId == id)
+            || db.ClinicalOrders.Any(o => o.PatientId == id);
+
+        if (hasClinicalData)
+        {
+            patient.IsDeleted = true;
+            patient.Status = "Đã xóa";
+            patient.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            db.Patients.Remove(patient);
+        }
+
+        db.SaveChanges();
+
+        return Result<bool>.Ok(true, "Xóa bệnh nhân thành công");
     }
 
     public Result<PatientDetailDto> UpdateCurrentPatient(PatientUpdateRequest request)
@@ -323,7 +350,15 @@ public sealed class MedicalRecordService(
         };
 
         db.Visits.Add(visit);
-        db.SaveChanges();
+        try
+        {
+            db.SaveChanges();
+        }
+        catch (DbUpdateException exception) when (IsDuplicateVisitAppointment(exception))
+        {
+            db.ChangeTracker.Clear();
+            return Conflict<VisitDetailDto>("Lịch hẹn đã có lượt khám");
+        }
         visit.VisitCode = $"LK{visit.Id:D3}";
         db.SaveChanges();
 
@@ -355,8 +390,17 @@ public sealed class MedicalRecordService(
         if (IsCurrentPatient()) return Forbidden<VisitDetailDto>("Bệnh nhân không được cập nhật sinh hiệu");
         if (IsCurrentDoctor() && !CurrentDoctorOwns(visit.DoctorId))
             return Forbidden<VisitDetailDto>("Bác sĩ chỉ được cập nhật sinh hiệu lượt khám thuộc mình");
+        if (visit.Status == MedicalStatuses.InProgress || visit.Status == MedicalStatuses.Completed || visit.Status == MedicalStatuses.Cancelled)
+            return Conflict<VisitDetailDto>("Chỉ cập nhật sinh hiệu trước khi bác sĩ bắt đầu khám.");
+        if (!HasRequiredVitalSigns(request))
+            return Invalid<VisitDetailDto>(
+                "Dữ liệu sinh hiệu không hợp lệ",
+                "vitalSigns",
+                "REQUIRED",
+                "Vui lòng nhập đầy đủ nhiệt độ, huyết áp, nhịp tim, chiều cao và cân nặng.");
 
         visit.VitalSignsJson = JsonSerializer.Serialize(request);
+        visit.Status = MedicalStatuses.WaitingForExam;
         visit.UpdatedAt = DateTime.UtcNow;
         db.SaveChanges();
 
@@ -423,6 +467,7 @@ public sealed class MedicalRecordService(
             PatientId = visit.PatientId,
             DoctorId = visit.DoctorId,
             DiagnosisCode = request.DiagnosisCode,
+            DiagnosisSpecialty = request.DiagnosisSpecialty,
             DiagnosisText = request.DiagnosisText.Trim(),
             DoctorNote = request.DoctorNote,
             TreatmentPlan = request.TreatmentPlan,
@@ -433,6 +478,7 @@ public sealed class MedicalRecordService(
         db.SaveChanges();
         record.MedicalRecordCode = $"BA{record.Id:D3}";
         db.SaveChanges();
+        CreateMedicalRecordOutbox(record, "medical_record.created");
 
         return Result<MedicalRecordDetailDto>.Ok(ToMedicalRecordDetail(record), "Tạo bệnh án thành công", StatusCodes.Status201Created);
     }
@@ -464,12 +510,14 @@ public sealed class MedicalRecordService(
             return Invalid<MedicalRecordDetailDto>("Chẩn đoán không được để trống", "diagnosisText", "REQUIRED", "Chẩn đoán không được để trống");
 
         record.DiagnosisCode = request.DiagnosisCode;
+        record.DiagnosisSpecialty = request.DiagnosisSpecialty;
         record.DiagnosisText = request.DiagnosisText.Trim();
         record.DoctorNote = request.DoctorNote;
         record.TreatmentPlan = request.TreatmentPlan;
         record.FollowUpDate = request.FollowUpDate;
         record.UpdatedAt = DateTime.UtcNow;
         db.SaveChanges();
+        CreateMedicalRecordOutbox(record, "medical_record.updated");
 
         return Result<MedicalRecordDetailDto>.Ok(ToMedicalRecordDetail(record), "Cập nhật bệnh án thành công");
     }
@@ -487,6 +535,7 @@ public sealed class MedicalRecordService(
         record.CompletedAt = DateTime.UtcNow;
         record.UpdatedAt = DateTime.UtcNow;
         db.SaveChanges();
+        CreateMedicalRecordOutbox(record, "medical_record.updated");
 
         return Result<MedicalRecordDetailDto>.Ok(ToMedicalRecordDetail(record), "Hoàn tất bệnh án thành công");
     }
@@ -817,6 +866,7 @@ public sealed class MedicalRecordService(
         snapshot.DoctorNameSnapshot = request.Data.DoctorName;
         snapshot.SpecialtyId = request.Data.SpecialtyId;
         snapshot.SpecialtyNameSnapshot = request.Data.SpecialtyName;
+        snapshot.Reason = NormalizeOptionalText(request.Data.Reason);
         snapshot.ScheduledAt = request.Data.ScheduledAt;
         snapshot.QueueNumber = request.Data.QueueNumber;
         snapshot.Status = request.Data.Status;
@@ -841,6 +891,11 @@ public sealed class MedicalRecordService(
         var existingVisit = db.Visits.FirstOrDefault(v => v.AppointmentId == request.Data.AppointmentId);
         if (existingVisit is not null)
         {
+            if (string.IsNullOrWhiteSpace(existingVisit.ChiefComplaint))
+            {
+                existingVisit.ChiefComplaint = NormalizeOptionalText(request.Data.Reason)
+                    ?? NormalizeOptionalText(snapshot.Reason);
+            }
             if (IsInProgressEvent(request.Data.Status) && existingVisit.Status == MedicalStatuses.WaitingForExam)
             {
                 existingVisit.DoctorId = request.Data.DoctorId;
@@ -861,13 +916,28 @@ public sealed class MedicalRecordService(
             PatientId = snapshot.PatientId.Value,
             DoctorId = request.Data.DoctorId,
             VisitDate = request.Data.CheckedInAt,
+            ChiefComplaint = NormalizeOptionalText(request.Data.Reason)
+                ?? NormalizeOptionalText(snapshot.Reason),
             Status = isInProgress ? MedicalStatuses.InProgress : MedicalStatuses.WaitingForExam,
             StartedAt = isInProgress ? request.Data.CheckedInAt : null
         };
 
         db.Visits.Add(visit);
         AddInbox(request.Source, request.EventCode, request.EventType, JsonSerializer.Serialize(request));
-        db.SaveChanges();
+        try
+        {
+            db.SaveChanges();
+        }
+        catch (DbUpdateException exception) when (IsDuplicateVisitAppointment(exception))
+        {
+            db.ChangeTracker.Clear();
+            existingVisit = db.Visits.AsNoTracking()
+                .First(v => v.AppointmentId == request.Data.AppointmentId);
+            return Result<EventResultDto>.Ok(
+                new(request.EventCode, request.EventType, MedicalStatuses.Processed,
+                    $"Lượt khám {existingVisit.VisitCode ?? $"#{existingVisit.Id}"} đã tồn tại"),
+                "Event check-in đã được đồng bộ trước đó");
+        }
         visit.VisitCode = $"LK{visit.Id:D3}";
         db.SaveChanges();
 
@@ -877,6 +947,13 @@ public sealed class MedicalRecordService(
     private static bool IsInProgressEvent(string? status)
         => string.Equals(status, "InProgress", StringComparison.OrdinalIgnoreCase)
             || string.Equals(status, MedicalStatuses.InProgress, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDuplicateVisitAppointment(DbUpdateException exception)
+        => exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "IX_Visits_AppointmentId"
+        };
 
     public Result<IReadOnlyList<InboxEventDto>> GetInboxEvents(string? status, string? eventType)
     {
@@ -1034,6 +1111,51 @@ public sealed class MedicalRecordService(
         };
 
         outbox.Payload = JsonSerializer.Serialize(payload);
+        db.SaveChanges();
+        return outbox;
+    }
+
+    private OutboxEvent CreateMedicalRecordOutbox(MedicalRecord record, string eventType)
+    {
+        var visit = db.Visits.AsNoTracking().First(v => v.Id == record.VisitId);
+        var patient = db.Patients.AsNoTracking().First(p => p.Id == record.PatientId);
+        var snapshot = visit.AppointmentId is null
+            ? null
+            : db.AppointmentSnapshots.AsNoTracking().FirstOrDefault(a => a.AppointmentId == visit.AppointmentId);
+
+        var outbox = new OutboxEvent
+        {
+            EventType = eventType,
+            AggregateType = nameof(MedicalRecord),
+            AggregateId = record.Id,
+            Payload = string.Empty
+        };
+        db.OutboxEvents.Add(outbox);
+        db.SaveChanges();
+
+        var eventCode = $"N2EV-MR-{outbox.Id:D3}";
+        outbox.EventCode = eventCode;
+        outbox.Payload = JsonSerializer.Serialize(new
+        {
+            eventCode,
+            eventType,
+            source = "MedicalRecordService",
+            occurredAt = DateTime.UtcNow,
+            data = new
+            {
+                medicalRecordId = record.Id,
+                medicalRecordCode = record.MedicalRecordCode,
+                visitId = record.VisitId,
+                appointmentId = visit.AppointmentId,
+                patientId = patient.Id,
+                patientCode = patient.PatientCode,
+                patientName = patient.FullName,
+                doctorId = record.DoctorId,
+                doctorName = snapshot?.DoctorNameSnapshot,
+                diagnosis = record.DiagnosisText,
+                status = record.Status
+            }
+        });
         db.SaveChanges();
         return outbox;
     }
@@ -1386,7 +1508,7 @@ public sealed class MedicalRecordService(
             ? null
             : new(snapshot.AppointmentId, snapshot.PatientId, snapshot.PatientNameSnapshot, snapshot.DoctorId,
                 snapshot.DoctorNameSnapshot, snapshot.SpecialtyId, snapshot.SpecialtyNameSnapshot, snapshot.ScheduledAt,
-                snapshot.QueueNumber, snapshot.Status, snapshot.ConfirmedAt, snapshot.CreatedAt);
+                snapshot.QueueNumber, snapshot.Status, snapshot.ConfirmedAt, snapshot.CreatedAt, snapshot.Reason);
     }
 
     private static BillingSummaryDto BillingPlaceholder(int? appointmentId)
@@ -1487,7 +1609,9 @@ public sealed class MedicalRecordService(
             : db.AppointmentSnapshots.AsNoTracking().FirstOrDefault(a => a.AppointmentId == visit.AppointmentId);
 
         return new(visit.Id, visit.VisitCode, visit.AppointmentId, visit.PatientId, patient?.PatientCode, patient?.FullName ?? string.Empty,
-            visit.DoctorId, snapshot?.DoctorNameSnapshot, visit.VisitDate, visit.ChiefComplaint, visit.Symptoms, visit.VitalSignsJson,
+            visit.DoctorId, snapshot?.DoctorNameSnapshot, visit.VisitDate,
+            NormalizeOptionalText(visit.ChiefComplaint) ?? NormalizeOptionalText(snapshot?.Reason),
+            visit.Symptoms, visit.VitalSignsJson,
             visit.Status, visit.StartedAt, visit.CompletedAt, visit.CancelReason);
     }
 
@@ -1495,8 +1619,8 @@ public sealed class MedicalRecordService(
     {
         var patient = db.Patients.AsNoTracking().FirstOrDefault(p => p.Id == record.PatientId);
         return new(record.Id, record.MedicalRecordCode, record.VisitId, record.PatientId, patient?.PatientCode, record.DoctorId,
-            record.DiagnosisCode, record.DiagnosisText, record.DoctorNote, record.TreatmentPlan, record.FollowUpDate,
-            record.Status, record.CreatedAt, record.CompletedAt);
+            record.DiagnosisCode, record.DiagnosisSpecialty, record.DiagnosisText, record.DoctorNote, record.TreatmentPlan, record.FollowUpDate,
+            record.Status, record.CreatedAt, record.UpdatedAt, record.CompletedAt);
     }
 
     private PrescriptionDetailDto ToPrescriptionDetail(Prescription prescription)
@@ -1536,6 +1660,44 @@ public sealed class MedicalRecordService(
                 words[i] = char.ToUpper(words[i][0]) + words[i][1..].ToLower();
         }
         return string.Join(' ', words);
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static bool HasMeasuredVitalSigns(VisitVitalsRequest request)
+        => request.Temperature.HasValue
+            || !string.IsNullOrWhiteSpace(request.BloodPressure)
+            || request.HeartRate.HasValue
+            || request.RespiratoryRate.HasValue
+            || request.Spo2.HasValue
+            || request.Weight.HasValue
+            || request.Height.HasValue;
+
+    private static bool HasRequiredVitalSigns(VisitVitalsRequest request)
+        => request.Temperature.HasValue
+            && !string.IsNullOrWhiteSpace(request.BloodPressure)
+            && request.HeartRate.HasValue
+            && request.RespiratoryRate.HasValue
+            && request.Spo2.HasValue
+            && request.Weight.HasValue
+            && request.Height.HasValue;
+
+    private static bool HasMeasuredVitalSigns(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        try
+        {
+            var vitals = JsonSerializer.Deserialize<VisitVitalsRequest>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            return vitals is not null && HasMeasuredVitalSigns(vitals);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static Result<T> NotFound<T>(string message)

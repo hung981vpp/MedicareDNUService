@@ -82,6 +82,8 @@ namespace PharmacyBillingService.Services
             var unit = RequiredText(createDto.Unit, "Don vi tinh la bat buoc.");
             var status = NormalizeStatus(createDto.Status, createDto.StockQuantity);
             
+            var expiryDate = NormalizeUtcDate(createDto.ExpiryDate);
+
             var medicine = new Medicine
             {
                 MedicineName = medicineName,
@@ -91,7 +93,7 @@ namespace PharmacyBillingService.Services
                 Price = createDto.Price,
                 StockQuantity = createDto.StockQuantity,
                 MinStockLevel = createDto.MinStockLevel,
-                ExpiryDate = createDto.ExpiryDate,
+                ExpiryDate = expiryDate,
                 Status = status,
                 CreatedAt = DateTime.UtcNow
             };
@@ -105,7 +107,7 @@ namespace PharmacyBillingService.Services
                 {
                     MedicineId = medicine.MedicineId,
                     BatchNumber = $"INIT-{medicine.MedicineId}",
-                    ExpiryDate = medicine.ExpiryDate,
+                    ExpiryDate = expiryDate,
                     Quantity = medicine.StockQuantity,
                     InitialQuantity = medicine.StockQuantity,
                     Status = "Active",
@@ -129,10 +131,11 @@ namespace PharmacyBillingService.Services
             medicine.Price = updateDto.Price;
             medicine.StockQuantity = updateDto.StockQuantity;
             medicine.MinStockLevel = updateDto.MinStockLevel;
-            medicine.ExpiryDate = updateDto.ExpiryDate;
+            medicine.ExpiryDate = NormalizeUtcDate(updateDto.ExpiryDate);
             medicine.Status = NormalizeStatus(updateDto.Status, updateDto.StockQuantity);
             medicine.UpdatedAt = DateTime.UtcNow;
 
+            await SyncDefaultBatchAsync(medicine);
             await _context.SaveChangesAsync();
             return MapToMedicineDto(medicine);
         }
@@ -228,6 +231,50 @@ namespace PharmacyBillingService.Services
 
             if (string.Equals(value, "Inactive", StringComparison.OrdinalIgnoreCase)) return "Inactive";
             return stockQuantity == 0 ? "OutOfStock" : "Active";
+        }
+
+        private static DateTime? NormalizeUtcDate(DateTime? value)
+        {
+            if (value is null) return null;
+            return value.Value.Kind switch
+            {
+                DateTimeKind.Utc => value.Value,
+                DateTimeKind.Local => value.Value.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+            };
+        }
+
+        private async Task SyncDefaultBatchAsync(Medicine medicine)
+        {
+            var defaultBatchNumber = $"INIT-{medicine.MedicineId}";
+            var defaultBatch = await _context.MedicineBatches
+                .FirstOrDefaultAsync(b => b.MedicineId == medicine.MedicineId && b.BatchNumber == defaultBatchNumber);
+
+            if (defaultBatch == null)
+            {
+                var hasAnyBatch = await _context.MedicineBatches.AnyAsync(b => b.MedicineId == medicine.MedicineId);
+                if (hasAnyBatch || medicine.StockQuantity <= 0) return;
+
+                _context.MedicineBatches.Add(new MedicineBatch
+                {
+                    MedicineId = medicine.MedicineId,
+                    BatchNumber = defaultBatchNumber,
+                    ExpiryDate = medicine.ExpiryDate,
+                    Quantity = medicine.StockQuantity,
+                    InitialQuantity = medicine.StockQuantity,
+                    Status = medicine.Status == "Inactive" ? "Inactive" : "Active",
+                    CreatedAt = DateTime.UtcNow
+                });
+                return;
+            }
+
+            defaultBatch.ExpiryDate = medicine.ExpiryDate;
+            defaultBatch.Quantity = medicine.StockQuantity;
+            defaultBatch.InitialQuantity = Math.Max(defaultBatch.InitialQuantity, medicine.StockQuantity);
+            defaultBatch.Status = medicine.Status == "Inactive"
+                ? "Inactive"
+                : medicine.StockQuantity == 0 ? "OutOfStock" : "Active";
+            defaultBatch.UpdatedAt = DateTime.UtcNow;
         }
     }
 }

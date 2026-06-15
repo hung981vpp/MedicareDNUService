@@ -76,12 +76,16 @@ public sealed class MedicalOutboxPublisherWorker : BackgroundService
         channel.ExchangeDeclare(rabbitOptions.Exchange, ExchangeType.Topic, durable: true, autoDelete: false);
         channel.QueueDeclare(rabbitOptions.PrescriptionQueue, durable: true, exclusive: false, autoDelete: false);
         channel.QueueBind(rabbitOptions.PrescriptionQueue, rabbitOptions.Exchange, "prescription.created");
+        channel.QueueBind(rabbitOptions.PrescriptionQueue, rabbitOptions.Exchange, "medical_record.created");
+        channel.QueueBind(rabbitOptions.PrescriptionQueue, rabbitOptions.Exchange, "medical_record.updated");
 
         foreach (var ev in pendingEvents)
         {
             var routingKey = ev.EventType switch
             {
                 "prescription.created" => "prescription.created",
+                "medical_record.created" => "medical_record.created",
+                "medical_record.updated" => "medical_record.updated",
                 _ => null
             };
 

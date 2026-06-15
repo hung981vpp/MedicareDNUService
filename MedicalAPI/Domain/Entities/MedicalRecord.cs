@@ -10,6 +10,7 @@ public sealed class MedicalRecord
     public int PatientId { get; set; }
     public int DoctorId { get; set; }
     public string? DiagnosisCode { get; set; }
+    public string? DiagnosisSpecialty { get; set; }
     public string DiagnosisText { get; set; } = string.Empty;
     public string? DoctorNote { get; set; }
     public string? TreatmentPlan { get; set; }

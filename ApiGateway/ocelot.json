@@ -33,6 +33,13 @@
       "Priority": 100
     },
     {
+      "UpstreamPathTemplate": "/pharmacy/hub/notifications",
+      "DownstreamPathTemplate": "/hub/notifications",
+      "DownstreamScheme": "ws",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
       "UpstreamPathTemplate": "/appointment/api/specialties/{everything}",
       "UpstreamHttpMethod": [ "GET" ],
       "DownstreamPathTemplate": "/api/specialties/{everything}",

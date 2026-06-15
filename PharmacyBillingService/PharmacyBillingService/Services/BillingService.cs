@@ -101,6 +101,7 @@ namespace PharmacyBillingService.Services
 
             _context.Invoices.Add(invoice);
             await _context.SaveChangesAsync();
+            await PublishInvoiceCreatedAsync(invoice);
 
             return MapToInvoiceDto(invoice);
         }
@@ -457,6 +458,19 @@ namespace PharmacyBillingService.Services
                 TotalAmount = invoice.TotalAmount,
                 PaymentMethod = paymentMethod,
                 PaidAt = invoice.PaidAt ?? DateTime.UtcNow
+            });
+        }
+
+        private async Task PublishInvoiceCreatedAsync(Invoice invoice)
+        {
+            await _eventPublisher.PublishAsync("invoice.created", new InvoiceCreatedEvent
+            {
+                InvoiceId = invoice.InvoiceId,
+                PatientId = invoice.PatientId,
+                AppointmentId = invoice.AppointmentId,
+                PrescriptionId = invoice.PrescriptionId,
+                TotalAmount = invoice.TotalAmount,
+                CreatedAt = invoice.CreatedAt
             });
         }
 

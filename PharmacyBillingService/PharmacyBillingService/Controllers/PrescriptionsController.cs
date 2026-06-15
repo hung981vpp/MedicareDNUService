@@ -113,7 +113,7 @@ namespace PharmacyBillingService.Controllers
         }
 
         [HttpPost("{id}/dispense")]
-        [Authorize(Roles = RoleConstants.AdminOrPharmacist)]
+        [Authorize(Roles = RoleConstants.Staff)]
         public async Task<IActionResult> Dispense(int id)
         {
             var userId = GetCurrentUserId();

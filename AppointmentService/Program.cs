@@ -175,6 +175,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppointmentDbContext>();
     dbContext.Database.Migrate();
+    EnsureWaitingQueueIndexes(dbContext);
 }
 
 if (app.Environment.IsDevelopment())
@@ -193,3 +194,12 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static void EnsureWaitingQueueIndexes(AppointmentDbContext dbContext)
+{
+    dbContext.Database.ExecuteSqlRaw("""
+        DROP INDEX IF EXISTS "IX_WaitingQueues_QueueDate_QueueNumber";
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_WaitingQueues_DoctorId_QueueDate_QueueNumber"
+            ON "WaitingQueues" ("DoctorId", "QueueDate", "QueueNumber");
+        """);
+}

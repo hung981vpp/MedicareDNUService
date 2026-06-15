@@ -12,7 +12,8 @@ public sealed record AppointmentSnapshotDto(
     int? QueueNumber,
     string Status,
     DateTime? ConfirmedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? Reason);
 
 public sealed record BillingSummaryDto(
     string Source,

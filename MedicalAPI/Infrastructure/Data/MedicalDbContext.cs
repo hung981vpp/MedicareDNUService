@@ -51,6 +51,7 @@ public sealed class MedicalDbContext(DbContextOptions<MedicalDbContext> options)
         entity.Property(a => a.PatientNameSnapshot).HasMaxLength(150);
         entity.Property(a => a.DoctorNameSnapshot).HasMaxLength(150);
         entity.Property(a => a.SpecialtyNameSnapshot).HasMaxLength(150);
+        entity.Property(a => a.Reason).HasMaxLength(500);
         entity.Property(a => a.Status).HasMaxLength(30);
     }
 
@@ -58,7 +59,7 @@ public sealed class MedicalDbContext(DbContextOptions<MedicalDbContext> options)
     {
         var entity = modelBuilder.Entity<Visit>();
         entity.HasIndex(v => v.VisitCode).IsUnique();
-        entity.HasIndex(v => v.AppointmentId);
+        entity.HasIndex(v => v.AppointmentId).IsUnique();
         entity.HasIndex(v => v.PatientId);
         entity.HasIndex(v => v.DoctorId);
         entity.Property(v => v.VisitCode).HasMaxLength(20);
@@ -79,6 +80,7 @@ public sealed class MedicalDbContext(DbContextOptions<MedicalDbContext> options)
         entity.HasIndex(r => r.PatientId);
         entity.Property(r => r.MedicalRecordCode).HasMaxLength(20);
         entity.Property(r => r.DiagnosisCode).HasMaxLength(50);
+        entity.Property(r => r.DiagnosisSpecialty).HasMaxLength(100);
         entity.Property(r => r.DiagnosisText).HasMaxLength(500);
         entity.Property(r => r.Status).HasMaxLength(30);
         entity.HasOne<Visit>()

@@ -163,7 +163,7 @@ namespace PharmacyBillingService.Services
             var medicineTotal = prescription.PrescriptionItems.Sum(i => i.TotalPrice);
             const decimal defaultExaminationFee = 150000m;
 
-            _context.Invoices.Add(new Invoice
+            var invoice = new Invoice
             {
                 PatientId = prescription.PatientId,
                 AppointmentId = prescription.AppointmentId,
@@ -173,9 +173,20 @@ namespace PharmacyBillingService.Services
                 TotalAmount = defaultExaminationFee + medicineTotal,
                 Status = "Unpaid",
                 CreatedAt = DateTime.UtcNow
-            });
+            };
 
+            _context.Invoices.Add(invoice);
             await _context.SaveChangesAsync();
+
+            await _eventPublisher.PublishAsync("invoice.created", new InvoiceCreatedEvent
+            {
+                InvoiceId = invoice.InvoiceId,
+                PatientId = invoice.PatientId,
+                AppointmentId = invoice.AppointmentId,
+                PrescriptionId = invoice.PrescriptionId,
+                TotalAmount = invoice.TotalAmount,
+                CreatedAt = invoice.CreatedAt
+            });
         }
 
         public async Task<List<PrescriptionDto>> GetAllPrescriptionsAsync(string? status)
@@ -239,7 +250,17 @@ namespace PharmacyBillingService.Services
                 throw new ArgumentException("Khong tim thay don thuoc yeu cau.");
             }
 
-            return await BuildStockCheckAsync(prescription);
+            var stockCheck = await BuildStockCheckAsync(prescription);
+            if (prescription.Status != "Dispensed")
+            {
+                prescription.Status = stockCheck.AllAvailable
+                    ? stockCheck.InvoiceStatus == "Paid" ? "ReadyToDispense" : "Pending"
+                    : stockCheck.AnyAvailable ? "PartiallyAvailable" : "OutOfStock";
+                await _context.SaveChangesAsync();
+                stockCheck.PrescriptionStatus = prescription.Status;
+            }
+
+            return stockCheck;
         }
 
         public async Task<PrescriptionDto> ApprovePrescriptionAsync(int prescriptionId)
@@ -275,6 +296,14 @@ namespace PharmacyBillingService.Services
 
             prescription.Status = "ReadyToDispense";
             await _context.SaveChangesAsync();
+            await _eventPublisher.PublishAsync("prescription.approved", new PrescriptionApprovedEvent
+            {
+                PrescriptionId = prescription.PrescriptionId,
+                PatientId = prescription.PatientId,
+                DoctorId = prescription.DoctorId,
+                AppointmentId = prescription.AppointmentId,
+                ApprovedAt = DateTime.UtcNow
+            });
             return await MapToPrescriptionDtoAsync(prescription);
         }
 
@@ -389,6 +418,15 @@ namespace PharmacyBillingService.Services
             {
                 PrescriptionId = prescriptionId,
                 PatientId = prescription.PatientId,
+                DispensedAt = DateTime.UtcNow
+            });
+
+            await _eventPublisher.PublishAsync("prescription.dispensed", new PrescriptionDispensedEvent
+            {
+                PrescriptionId = prescriptionId,
+                PatientId = prescription.PatientId,
+                DoctorId = prescription.DoctorId,
+                AppointmentId = prescription.AppointmentId,
                 DispensedAt = DateTime.UtcNow
             });
 

@@ -55,6 +55,9 @@ public sealed class AppointmentConfirmedData
     [StringLength(150)]
     public string? SpecialtyName { get; init; }
 
+    [StringLength(500)]
+    public string? Reason { get; init; }
+
     public DateTime ScheduledAt { get; init; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Số thứ tự phải lớn hơn 0")]
@@ -95,6 +98,9 @@ public sealed class PatientCheckedInData
 
     [Range(1, int.MaxValue, ErrorMessage = "Số thứ tự phải lớn hơn 0")]
     public int? QueueNumber { get; init; }
+
+    [StringLength(500)]
+    public string? Reason { get; init; }
 
     public DateTime CheckedInAt { get; init; }
 

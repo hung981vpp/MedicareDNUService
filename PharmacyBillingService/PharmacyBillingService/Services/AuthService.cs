@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
@@ -28,6 +29,8 @@ namespace PharmacyBillingService.Services
         Task<UserDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
         Task<List<UserDto>> GetAllUsersAsync();
         Task<List<UserDto>> GetUsersByRolesAsync(List<string> roles);
+        Task<UserDto?> UpdateUserAsync(int userId, UpdateUserDto updateDto);
+        Task<bool> DeleteUserAsync(int userId);
         Task<bool> LockUserAsync(int userId);
         Task<bool> UnlockUserAsync(int userId);
     }
@@ -236,6 +239,100 @@ namespace PharmacyBillingService.Services
             return users.Select(MapToUserDto).ToList();
         }
 
+        public async Task<UserDto?> UpdateUserAsync(int userId, UpdateUserDto updateDto)
+        {
+            updateDto.Role = NormalizeRole(updateDto.Role);
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return null;
+
+            var fullName = updateDto.FullName.Trim();
+            var email = updateDto.Email.Trim();
+            var username = string.IsNullOrWhiteSpace(updateDto.Username)
+                ? BuildUsernameFromEmail(email)
+                : updateDto.Username.Trim();
+            var phone = updateDto.PhoneNumber?.Trim();
+
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                throw new InvalidOperationException("[fullName]Họ tên là bắt buộc.");
+            }
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new InvalidOperationException("[email]Email là bắt buộc.");
+            }
+
+            var normalizedEmail = email.ToLower();
+            var emailExists = await _context.Users.AnyAsync(u =>
+                u.UserId != userId && u.Email.ToLower() == normalizedEmail);
+            if (emailExists)
+            {
+                throw new InvalidOperationException("[email]Email đã tồn tại trong hệ thống.");
+            }
+
+            var usernameExists = await _context.Users.AnyAsync(u =>
+                u.UserId != userId && u.Username == username);
+            if (usernameExists)
+            {
+                throw new InvalidOperationException("[username]Tên đăng nhập đã tồn tại trong hệ thống.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(phone))
+            {
+                var phoneExists = await _context.Users.AnyAsync(u =>
+                    u.UserId != userId && u.PhoneNumber == phone);
+                if (phoneExists)
+                {
+                    throw new InvalidOperationException("[phoneNumber]Số điện thoại đã tồn tại trong hệ thống.");
+                }
+            }
+
+            if (user.Role == RoleConstants.Admin && updateDto.Role != RoleConstants.Admin)
+            {
+                var adminCount = await _context.Users.CountAsync(u => u.Role == RoleConstants.Admin);
+                if (adminCount <= 1)
+                {
+                    throw new InvalidOperationException("Không thể đổi vai trò của Admin cuối cùng.");
+                }
+            }
+
+            user.FullName = CapitalizeFullName(fullName);
+            user.Email = email;
+            user.Username = username;
+            user.PhoneNumber = string.IsNullOrWhiteSpace(phone) ? null : phone;
+            user.Role = updateDto.Role;
+            user.Status = updateDto.Status;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            if (!string.IsNullOrWhiteSpace(updateDto.Password))
+            {
+                user.PasswordHash = PasswordHasher.HashPassword(updateDto.Password);
+            }
+
+            await _context.SaveChangesAsync();
+            return MapToUserDto(user);
+        }
+
+        public async Task<bool> DeleteUserAsync(int userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return false;
+
+            if (user.Role == RoleConstants.Admin)
+            {
+                throw new InvalidOperationException("Không thể xóa tài khoản Admin.");
+            }
+
+            if (user.Role == RoleConstants.Patient && user.PatientId is int patientId)
+            {
+                await DeleteMedicalPatientAsync(patientId);
+            }
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<bool> LockUserAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId);
@@ -286,10 +383,11 @@ namespace PharmacyBillingService.Services
             return normalized switch
             {
                 RoleConstants.Admin => RoleConstants.Admin,
+                RoleConstants.Doctor => RoleConstants.Doctor,
                 RoleConstants.Nurse => RoleConstants.Nurse,
                 RoleConstants.Pharmacist => RoleConstants.Pharmacist,
                 RoleConstants.Patient => RoleConstants.Patient,
-                _ => throw new InvalidOperationException("Vai tro khong hop le. Chi ho tro: Admin, Nurse, Pharmacist, Patient.")
+                _ => throw new InvalidOperationException("Vai tro khong hop le. Chi ho tro: Admin, Doctor, Nurse, Pharmacist, Patient.")
             };
         }
 
@@ -339,6 +437,23 @@ namespace PharmacyBillingService.Services
             }
 
             return created.Data.Id;
+        }
+
+        private async Task DeleteMedicalPatientAsync(int patientId)
+        {
+            var medicalBaseUrl = _configuration["ServiceUrls:MedicalRecordService"] ?? "http://medical-api:8080";
+            using var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateSystemToken());
+
+            var response = await client.DeleteAsync($"{medicalBaseUrl.TrimEnd('/')}/api/v1/medical/patients/{patientId}");
+            if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return;
+            }
+
+            var detail = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"Không thể xóa tài khoản vì hồ sơ bệnh nhân chưa được xóa. HTTP {(int)response.StatusCode}: {detail}");
         }
 
         private string GenerateSystemToken()

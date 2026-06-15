@@ -69,6 +69,14 @@ namespace PharmacyBillingService.Controllers
             }
         }
 
+        [HttpGet("users")]
+        [Authorize(Roles = RoleConstants.Admin)]
+        public async Task<IActionResult> GetUsers()
+        {
+            var users = await _authService.GetAllUsersAsync();
+            return Ok(users);
+        }
+
         [HttpPost("check-duplicate")]
         [AllowAnonymous]
         public async Task<IActionResult> CheckDuplicate([FromBody] CheckDuplicateRequestDto request)
@@ -126,7 +134,7 @@ namespace PharmacyBillingService.Controllers
         [Authorize(Roles = RoleConstants.Admin)]
         public async Task<IActionResult> GetDoctors()
         {
-            var users = await _authService.GetUsersByRolesAsync(new List<string> { RoleConstants.Pharmacist });
+            var users = await _authService.GetUsersByRolesAsync(new List<string> { RoleConstants.Doctor });
             return Ok(users);
         }
 
@@ -136,6 +144,41 @@ namespace PharmacyBillingService.Controllers
         {
             var users = await _authService.GetUsersByRolesAsync(new List<string> { RoleConstants.Patient });
             return Ok(users);
+        }
+
+        [HttpPut("users/{id}")]
+        [Authorize(Roles = RoleConstants.Admin)]
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto updateDto)
+        {
+            try
+            {
+                var user = await _authService.UpdateUserAsync(id, updateDto);
+                return user == null ? NotFound(new { Message = "Khong tim thay nguoi dung." }) : Ok(user);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpDelete("users/{id}")]
+        [Authorize(Roles = RoleConstants.Admin)]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            if (GetCurrentUserId() == id)
+            {
+                return BadRequest(new { Message = "Khong the xoa tai khoan dang dang nhap." });
+            }
+
+            try
+            {
+                var success = await _authService.DeleteUserAsync(id);
+                return success ? Ok(new { Message = "Xoa tai khoan thanh cong." }) : NotFound(new { Message = "Khong tim thay nguoi dung." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
         [HttpPut("users/{id}/lock")]

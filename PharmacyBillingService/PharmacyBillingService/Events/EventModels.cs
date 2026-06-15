@@ -45,6 +45,26 @@ namespace PharmacyBillingService.Events
         public DateTime DispensedAt { get; set; } = DateTime.UtcNow;
     }
 
+    public class PrescriptionApprovedEvent
+    {
+        public string EventName { get; set; } = "prescription.approved";
+        public int PrescriptionId { get; set; }
+        public int PatientId { get; set; }
+        public int DoctorId { get; set; }
+        public int? AppointmentId { get; set; }
+        public DateTime ApprovedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class PrescriptionDispensedEvent
+    {
+        public string EventName { get; set; } = "prescription.dispensed";
+        public int PrescriptionId { get; set; }
+        public int PatientId { get; set; }
+        public int DoctorId { get; set; }
+        public int? AppointmentId { get; set; }
+        public DateTime DispensedAt { get; set; } = DateTime.UtcNow;
+    }
+
     public class InvoicePaidEvent
     {
         public string EventName { get; set; } = "invoice.paid";
@@ -53,5 +73,16 @@ namespace PharmacyBillingService.Events
         public decimal TotalAmount { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
         public DateTime PaidAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class InvoiceCreatedEvent
+    {
+        public string EventName { get; set; } = "invoice.created";
+        public int InvoiceId { get; set; }
+        public int PatientId { get; set; }
+        public int? AppointmentId { get; set; }
+        public int? PrescriptionId { get; set; }
+        public decimal TotalAmount { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

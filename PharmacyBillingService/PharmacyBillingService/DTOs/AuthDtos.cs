@@ -41,7 +41,7 @@ namespace PharmacyBillingService.DTOs
         public string Password { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Vai trò là bắt buộc")]
-        [RegularExpression("^(Admin|Nurse|Pharmacist|Patient)$", ErrorMessage = "Vai trò không hợp lệ. Phải là: Admin, Nurse, Pharmacist, hoặc Patient")]
+        [RegularExpression("^(Admin|Doctor|Nurse|Pharmacist|Patient)$", ErrorMessage = "Vai trò không hợp lệ. Phải là: Admin, Doctor, Nurse, Pharmacist, hoặc Patient")]
         public string Role { get; set; } = "Patient";
     }
 
@@ -73,6 +73,37 @@ namespace PharmacyBillingService.DTOs
         [Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
         [MaxLength(20, ErrorMessage = "Số điện thoại tối đa 20 ký tự")]
         public string? PhoneNumber { get; set; }
+    }
+
+    public class UpdateUserDto
+    {
+        [Required(ErrorMessage = "Họ tên là bắt buộc")]
+        [MaxLength(100, ErrorMessage = "Họ tên tối đa 100 ký tự")]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email là bắt buộc")]
+        [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
+        [MaxLength(100, ErrorMessage = "Email tối đa 100 ký tự")]
+        public string Email { get; set; } = string.Empty;
+
+        [MaxLength(50, ErrorMessage = "Username tối đa 50 ký tự")]
+        public string? Username { get; set; }
+
+        [Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
+        [MaxLength(20, ErrorMessage = "Số điện thoại tối đa 20 ký tự")]
+        public string? PhoneNumber { get; set; }
+
+        [Required(ErrorMessage = "Vai trò là bắt buộc")]
+        [RegularExpression("^(Admin|Doctor|Nurse|Pharmacist|Patient)$", ErrorMessage = "Vai trò không hợp lệ. Phải là: Admin, Doctor, Nurse, Pharmacist, hoặc Patient")]
+        public string Role { get; set; } = "Patient";
+
+        [Required(ErrorMessage = "Trạng thái là bắt buộc")]
+        [RegularExpression("^(Active|Locked)$", ErrorMessage = "Trạng thái không hợp lệ. Phải là Active hoặc Locked")]
+        public string Status { get; set; } = "Active";
+
+        [MinLength(6, ErrorMessage = "Mật khẩu tối thiểu 6 ký tự")]
+        [MaxLength(100, ErrorMessage = "Mật khẩu tối đa 100 ký tự")]
+        public string? Password { get; set; }
     }
 
     public class LoginResponseDto

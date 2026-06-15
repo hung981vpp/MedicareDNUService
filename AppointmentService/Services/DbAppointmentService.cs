@@ -16,6 +16,37 @@ public sealed class DbAppointmentService : IAppointmentService
 {
     private static readonly List<AppointmentEventDto> IntegrationEvents = [];
     private static readonly object IntegrationEventsLock = new();
+    private static readonly string[] MaleDoctorAvatarUrls =
+    [
+        "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1651008376811-b90baee60c1f?auto=format&fit=crop&w=600&q=80"
+    ];
+
+    private static readonly string[] FemaleDoctorAvatarUrls =
+    [
+        "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1638202993928-7267aad84c31?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=600&q=80"
+    ];
+
+    private static readonly string[] NeutralDoctorAvatarUrls =
+    [
+        "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=600&q=80"
+    ];
+
+    private static readonly HashSet<string> LegacyGenericAvatarUrls = new(StringComparer.OrdinalIgnoreCase)
+    {
+        MaleDoctorAvatarUrls[0],
+        FemaleDoctorAvatarUrls[0],
+        NeutralDoctorAvatarUrls[0]
+    };
 
     private readonly AppointmentDbContext _dbContext;
 
@@ -149,6 +180,8 @@ public sealed class DbAppointmentService : IAppointmentService
             return ServiceResult<AppointmentDto>.Fail("Slot is already booked", ServiceErrorType.BadRequest);
         }
 
+        AddAppointmentOutboxEvent(appointment, "appointment.created", null);
+        _dbContext.SaveChanges();
         AddIntegrationEvent("AppointmentCreated", appointment);
         return ServiceResult<AppointmentDto>.Ok(ToAppointmentDto(appointment), "Appointment created successfully");
     }
@@ -276,6 +309,7 @@ public sealed class DbAppointmentService : IAppointmentService
         appointment.StartedAt ??= DateTime.UtcNow;
         appointment.UpdatedAt = DateTime.UtcNow;
         queueEntry.Status = QueueStatus.InProgress;
+        AddAppointmentOutboxEvent(appointment, "appointment.started", queueEntry);
         _dbContext.SaveChanges();
 
         return ServiceResult<AppointmentDto>.Ok(ToAppointmentDto(appointment), "Appointment started successfully");
@@ -504,7 +538,7 @@ public sealed class DbAppointmentService : IAppointmentService
             Gender = request.Gender.Trim(),
             DateOfBirth = request.DateOfBirth,
             Description = request.Description.Trim(),
-            AvatarUrl = request.AvatarUrl.Trim(),
+            AvatarUrl = NormalizeDoctorAvatarUrl(request.AvatarUrl, request.Gender, fullName),
             RoomNumber = request.RoomNumber.Trim(),
             IsActive = request.IsActive,
             CreatedAt = DateTime.UtcNow,
@@ -553,7 +587,7 @@ public sealed class DbAppointmentService : IAppointmentService
         doctor.Gender = request.Gender.Trim();
         doctor.DateOfBirth = request.DateOfBirth;
         doctor.Description = request.Description.Trim();
-        doctor.AvatarUrl = request.AvatarUrl.Trim();
+        doctor.AvatarUrl = NormalizeDoctorAvatarUrl(request.AvatarUrl, request.Gender, fullName);
         doctor.RoomNumber = request.RoomNumber.Trim();
         doctor.IsActive = request.IsActive;
         doctor.UpdatedAt = DateTime.UtcNow;
@@ -572,12 +606,12 @@ public sealed class DbAppointmentService : IAppointmentService
 
         if (_dbContext.Appointments.Any(x => x.DoctorId == id))
         {
-            return ServiceResult<bool>.Fail("Doctor has appointments and cannot be deleted", ServiceErrorType.BadRequest);
+            return ServiceResult<bool>.Fail("Không thể xóa bác sĩ vì đang có lịch hẹn liên quan.", ServiceErrorType.BadRequest);
         }
 
         if (_dbContext.DoctorSchedules.Any(x => x.DoctorId == id))
         {
-            return ServiceResult<bool>.Fail("Doctor has schedules and cannot be deleted", ServiceErrorType.BadRequest);
+            return ServiceResult<bool>.Fail("Không thể xóa bác sĩ vì đang có lịch làm việc liên quan.", ServiceErrorType.BadRequest);
         }
 
         _dbContext.Doctors.Remove(doctor);
@@ -904,6 +938,7 @@ public sealed class DbAppointmentService : IAppointmentService
         appointment.Status = AppointmentStatus.InProgress;
         appointment.StartedAt ??= DateTime.UtcNow;
         appointment.UpdatedAt = DateTime.UtcNow;
+        AddAppointmentOutboxEvent(appointment, "appointment.started", queueEntry);
         _dbContext.SaveChanges();
 
         return ServiceResult<QueueEntryDto>.Ok(ToQueueEntryDto(queueEntry), "Waiting queue entry started successfully");
@@ -1120,13 +1155,45 @@ public sealed class DbAppointmentService : IAppointmentService
             Gender = doctor.Gender,
             DateOfBirth = doctor.DateOfBirth,
             Description = doctor.Description,
-            AvatarUrl = doctor.AvatarUrl,
+            AvatarUrl = NormalizeDoctorAvatarUrl(doctor.AvatarUrl, doctor.Gender, $"{doctor.Id}:{doctor.FullName}"),
             RoomNumber = doctor.RoomNumber,
             IsActive = doctor.IsActive,
             CreatedAt = doctor.CreatedAt,
             UpdatedAt = doctor.UpdatedAt,
             UserId = doctor.UserId
         };
+    }
+
+    private static string NormalizeDoctorAvatarUrl(string? avatarUrl, string? gender, string? identity)
+    {
+        var trimmedUrl = avatarUrl?.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmedUrl) && !LegacyGenericAvatarUrls.Contains(trimmedUrl))
+        {
+            return trimmedUrl;
+        }
+
+        var normalizedGender = gender?.Trim();
+        if (string.Equals(normalizedGender, "Female", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedGender, "Nữ", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedGender, "Nu", StringComparison.OrdinalIgnoreCase))
+        {
+            return PickDoctorAvatar(FemaleDoctorAvatarUrls, identity);
+        }
+
+        if (string.Equals(normalizedGender, "Male", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedGender, "Nam", StringComparison.OrdinalIgnoreCase))
+        {
+            return PickDoctorAvatar(MaleDoctorAvatarUrls, identity);
+        }
+
+        return PickDoctorAvatar(NeutralDoctorAvatarUrls, identity);
+    }
+
+    private static string PickDoctorAvatar(IReadOnlyList<string> avatarUrls, string? identity)
+    {
+        var source = string.IsNullOrWhiteSpace(identity) ? "doctor" : identity.Trim();
+        var hash = source.Aggregate(0, (value, character) => value + character);
+        return avatarUrls[Math.Abs(hash) % avatarUrls.Count];
     }
 
     private SpecialtyDto ToSpecialtyDto(Specialty specialty)
@@ -1351,6 +1418,7 @@ public sealed class DbAppointmentService : IAppointmentService
                 DoctorId = appointment.DoctorId,
                 AppointmentDate = appointment.AppointmentDate,
                 SlotTime = appointment.SlotTime,
+                Reason = appointment.Reason,
                 OccurredAt = DateTime.UtcNow
             });
         }
@@ -1386,9 +1454,19 @@ public sealed class DbAppointmentService : IAppointmentService
                     doctorName = doctor.FullName,
                     specialtyId = specialty.Id,
                     specialtyName = specialty.Name,
+                    reason = appointment.Reason,
+                    scheduledAt = new DateTime(
+                        appointment.AppointmentDate.Year,
+                        appointment.AppointmentDate.Month,
+                        appointment.AppointmentDate.Day,
+                        appointment.SlotTime.Hour,
+                        appointment.SlotTime.Minute,
+                        appointment.SlotTime.Second,
+                        DateTimeKind.Utc),
                     queueNumber = appointment.QueueNumber ?? queueEntry.QueueNumber,
                     checkedInAt = appointment.CheckedInAt ?? DateTime.UtcNow,
-                    status
+                    status,
+                    appointmentStatus = appointment.Status.ToString()
                 }
             }),
             Status = "Pending"
@@ -1401,8 +1479,10 @@ public sealed class DbAppointmentService : IAppointmentService
     {
         var suffix = eventType switch
         {
+            "appointment.created" => "CREATED",
             "appointment.confirmed" => "CONFIRMED",
             "appointment.cancelled" => "CANCELLED",
+            "appointment.started" => "STARTED",
             "appointment.completed" => "COMPLETED",
             _ => eventType.ToUpperInvariant().Replace(".", "-")
         };
@@ -1434,6 +1514,7 @@ public sealed class DbAppointmentService : IAppointmentService
                     doctorName = doctor.FullName,
                     specialtyId = specialty.Id,
                     specialtyName = specialty.Name,
+                    reason = appointment.Reason,
                     scheduledAt = new DateTime(
                         appointment.AppointmentDate.Year,
                         appointment.AppointmentDate.Month,

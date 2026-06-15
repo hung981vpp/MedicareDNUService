@@ -9,6 +9,9 @@ public static class MedicalDbSeeder
     public static void Seed(MedicalDbContext db)
     {
         db.Database.EnsureCreated();
+        EnsureAppointmentSnapshotReason(db);
+        EnsureMedicalRecordDiagnosisSpecialty(db);
+        EnsureVisitAppointmentUniqueness(db);
 
         if (db.Patients.Any())
         {
@@ -55,6 +58,24 @@ public static class MedicalDbSeeder
 
         db.SaveChanges();
         ResetIdentitySequences(db);
+    }
+
+    private static void EnsureAppointmentSnapshotReason(MedicalDbContext db)
+    {
+        db.Database.ExecuteSqlRaw(
+            """
+            ALTER TABLE "AppointmentSnapshots"
+            ADD COLUMN IF NOT EXISTS "Reason" character varying(500);
+            """);
+    }
+
+    private static void EnsureMedicalRecordDiagnosisSpecialty(MedicalDbContext db)
+    {
+        db.Database.ExecuteSqlRaw(
+            """
+            ALTER TABLE "MedicalRecords"
+            ADD COLUMN IF NOT EXISTS "DiagnosisSpecialty" character varying(100);
+            """);
     }
 
     private static Patient CreatePatient(
@@ -107,5 +128,67 @@ public static class MedicalDbSeeder
         {
             db.Database.ExecuteSqlRaw(sql);
         }
+    }
+
+    private static void EnsureVisitAppointmentUniqueness(MedicalDbContext db)
+    {
+        db.Database.ExecuteSqlRaw(
+            """
+            WITH ranked_visits AS (
+                SELECT
+                    v."Id",
+                    ROW_NUMBER() OVER (
+                        PARTITION BY v."AppointmentId"
+                        ORDER BY
+                            CASE WHEN EXISTS (
+                                SELECT 1
+                                FROM "MedicalRecords" mr
+                                WHERE mr."VisitId" = v."Id"
+                            ) THEN 0 ELSE 1 END,
+                            v."Id"
+                    ) AS duplicate_rank
+                FROM "Visits" v
+                WHERE v."AppointmentId" IS NOT NULL
+            )
+            DELETE FROM "Visits" v
+            USING ranked_visits ranked
+            WHERE v."Id" = ranked."Id"
+              AND ranked.duplicate_rank > 1
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM "MedicalRecords" mr
+                  WHERE mr."VisitId" = v."Id"
+              );
+
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM "Visits"
+                    WHERE "AppointmentId" IS NOT NULL
+                    GROUP BY "AppointmentId"
+                    HAVING COUNT(*) > 1
+                ) THEN
+                    RAISE EXCEPTION 'Không thể tạo unique index: còn Visit trùng AppointmentId có dữ liệu bệnh án.';
+                END IF;
+            END $$;
+
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class index_class
+                    JOIN pg_index index_info ON index_info.indexrelid = index_class.oid
+                    WHERE index_class.relname = 'IX_Visits_AppointmentId'
+                      AND NOT index_info.indisunique
+                ) THEN
+                    DROP INDEX "IX_Visits_AppointmentId";
+                END IF;
+            END $$;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_Visits_AppointmentId"
+                ON "Visits" ("AppointmentId")
+                WHERE "AppointmentId" IS NOT NULL;
+            """);
     }
 }

@@ -14,5 +14,7 @@ public sealed class AppointmentConfirmedEvent
 
     public TimeOnly SlotTime { get; init; }
 
+    public string? Reason { get; init; }
+
     public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
 }

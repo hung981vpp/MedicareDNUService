@@ -16,5 +16,7 @@ public sealed class AppointmentEventDto
 
     public TimeOnly SlotTime { get; init; }
 
+    public string? Reason { get; init; }
+
     public DateTime OccurredAt { get; init; }
 }

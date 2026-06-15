@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using PharmacyBillingService.Data;
 using PharmacyBillingService.Events;
 using PharmacyBillingService.Helpers;
+using PharmacyBillingService.Hubs;
 using PharmacyBillingService.Services;
 using System.Text;
 
@@ -14,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
+builder.Services.AddSignalR();
 
 // Add DbContext (Supports dynamic DATABASE_URL parsing for Render environment)
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
@@ -50,7 +52,9 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IPrescriptionService, PrescriptionService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<INotificationTargetResolver, NotificationTargetResolver>();
 builder.Services.AddHostedService<PrescriptionEventsConsumerWorker>();
+builder.Services.AddHostedService<NotificationEventsConsumerWorker>();
 
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -75,6 +79,21 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"] ?? "PharmacyBillingService",
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hub/notifications"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -123,8 +142,12 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<PharmacyDbContext>();
-        // EnsureCreated tự động sinh database và seed dữ liệu nếu chưa tồn tại
-        context.Database.EnsureCreated();
+        // Fresh N3 databases still use EnsureCreated; existing databases can receive the focused Notifications migration.
+        var created = context.Database.EnsureCreated();
+        if (!created && TableExists(context, "Users") && !TableExists(context, "Notifications"))
+        {
+            context.Database.Migrate();
+        }
     }
     catch (Exception ex)
     {
@@ -167,5 +190,16 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hub/notifications");
 
 app.Run();
+
+static bool TableExists(PharmacyDbContext context, string tableName)
+{
+    return context.Database
+        .SqlQueryRaw<bool>(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = {0}) AS \"Value\"",
+            tableName)
+        .AsEnumerable()
+        .First();
+}

@@ -60,6 +60,12 @@ public sealed class PatientsController(IMedicalRecordService service) : MedicalC
     [EndpointDescription("Cập nhật thông tin hành chính, tiền sử bệnh, dị ứng và trạng thái hồ sơ bệnh nhân.")]
     public IActionResult Update(int id, PatientUpdateRequest request) => ToActionResult(service.UpdatePatient(id, request));
 
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
+    [EndpointSummary("Xóa hồ sơ bệnh nhân")]
+    [EndpointDescription("Xóa thật hồ sơ bệnh nhân khỏi database nếu chưa có dữ liệu khám bệnh liên quan.")]
+    public IActionResult Delete(int id) => ToActionResult(service.DeletePatient(id));
+
     [HttpPut("me")]
     [Authorize(Roles = "Patient")]
     [EndpointSummary("Cập nhật hồ sơ bệnh nhân của tôi")]

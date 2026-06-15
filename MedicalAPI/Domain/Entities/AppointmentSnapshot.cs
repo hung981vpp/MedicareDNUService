@@ -10,6 +10,7 @@ public sealed class AppointmentSnapshot
     public string? DoctorNameSnapshot { get; set; }
     public int? SpecialtyId { get; set; }
     public string? SpecialtyNameSnapshot { get; set; }
+    public string? Reason { get; set; }
     public DateTime ScheduledAt { get; set; }
     public int? QueueNumber { get; set; }
     public string Status { get; set; } = string.Empty;

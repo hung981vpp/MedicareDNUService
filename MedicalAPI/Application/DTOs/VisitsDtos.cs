@@ -31,24 +31,32 @@ public sealed class VisitStartRequest
 
 public sealed class VisitVitalsRequest
 {
+    [Required(ErrorMessage = "Nhiệt độ không được để trống")]
     [Range(30, 45, ErrorMessage = "Nhiệt độ phải nằm trong khoảng 30 đến 45")]
     public decimal? Temperature { get; init; }
 
+    [Required(ErrorMessage = "Huyết áp không được để trống")]
     [StringLength(30)]
+    [RegularExpression(@"^\d{2,3}\s*/\s*\d{2,3}$", ErrorMessage = "Huyết áp phải có dạng tâm thu/tâm trương, ví dụ 120/80")]
     public string? BloodPressure { get; init; }
 
+    [Required(ErrorMessage = "Nhịp tim không được để trống")]
     [Range(1, 250, ErrorMessage = "Nhịp tim phải lớn hơn 0")]
     public int? HeartRate { get; init; }
 
-    [Range(1, 100, ErrorMessage = "Nhịp thở phải lớn hơn 0")]
+    [Required(ErrorMessage = "Nhịp thở không được để trống")]
+    [Range(1, 100, ErrorMessage = "Nhịp thở phải nằm trong khoảng 1 đến 100")]
     public int? RespiratoryRate { get; init; }
 
+    [Required(ErrorMessage = "SpO2 không được để trống")]
     [Range(1, 100, ErrorMessage = "SpO2 phải nằm trong khoảng 1 đến 100")]
     public int? Spo2 { get; init; }
 
+    [Required(ErrorMessage = "Cân nặng không được để trống")]
     [Range(1, 500, ErrorMessage = "Cân nặng phải lớn hơn 0")]
     public decimal? Weight { get; init; }
 
+    [Required(ErrorMessage = "Chiều cao không được để trống")]
     [Range(1, 300, ErrorMessage = "Chiều cao phải lớn hơn 0")]
     public decimal? Height { get; init; }
 

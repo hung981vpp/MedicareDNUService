@@ -8,5 +8,6 @@ namespace PharmacyBillingService.Messaging
         public string Password { get; init; } = "guest";
         public string Exchange { get; init; } = "clinic.events";
         public string PrescriptionQueue { get; init; } = "n3.prescription-events";
+        public string NotificationQueue { get; init; } = "n3.notification-events";
     }
 }

@@ -77,18 +77,22 @@ public sealed class OutboxPublisherWorker : BackgroundService
         using var channel = connection.CreateModel();
         channel.ExchangeDeclare(rabbitOptions.Exchange, ExchangeType.Topic, durable: true, autoDelete: false);
         channel.QueueDeclare(rabbitOptions.AppointmentQueue, durable: true, exclusive: false, autoDelete: false);
+        channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.created");
         channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.confirmed");
         channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "patient.checked_in");
         channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.cancelled");
+        channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.started");
         channel.QueueBind(rabbitOptions.AppointmentQueue, rabbitOptions.Exchange, "appointment.completed");
 
         foreach (var ev in pendingEvents)
         {
             var routingKey = ev.EventType switch
             {
+                "appointment.created" => "appointment.created",
                 "appointment.confirmed" => "appointment.confirmed",
                 "patient.checked_in" => "patient.checked_in",
                 "appointment.cancelled" => "appointment.cancelled",
+                "appointment.started" => "appointment.started",
                 "appointment.completed" => "appointment.completed",
                 _ => null
             };

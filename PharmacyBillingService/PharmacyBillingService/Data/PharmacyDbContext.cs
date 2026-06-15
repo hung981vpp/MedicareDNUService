@@ -21,6 +21,7 @@ namespace PharmacyBillingService.Data
         public DbSet<StockTransaction> StockTransactions { get; set; } = null!;
         public DbSet<ProcessedEvent> ProcessedEvents { get; set; } = null!;
         public DbSet<PaymentWebhookLog> PaymentWebhookLogs { get; set; } = null!;
+        public DbSet<Notification> Notifications { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -65,6 +66,18 @@ namespace PharmacyBillingService.Data
             modelBuilder.Entity<PaymentWebhookLog>()
                 .HasIndex(w => new { w.Provider, w.ReferenceCode })
                 .HasFilter("\"ReferenceCode\" IS NOT NULL");
+
+            modelBuilder.Entity<Notification>()
+                .HasIndex(n => n.UserId);
+
+            modelBuilder.Entity<Notification>()
+                .HasIndex(n => new { n.UserId, n.IsRead });
+
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Configure relations for PrescriptionItems
             modelBuilder.Entity<PrescriptionItem>()

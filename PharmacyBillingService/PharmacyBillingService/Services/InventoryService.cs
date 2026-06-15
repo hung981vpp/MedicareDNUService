@@ -139,6 +139,9 @@ namespace PharmacyBillingService.Services
             {
                 beforeQty = medicine.StockQuantity;
                 medicine.StockQuantity = afterQty;
+                medicine.Status = afterQty == 0 ? "OutOfStock" : "Active";
+                medicine.UpdatedAt = DateTime.UtcNow;
+                batch = await SyncDefaultBatchForTotalAsync(medicine, afterQty);
             }
 
             if (beforeQty == afterQty)
@@ -155,6 +158,7 @@ namespace PharmacyBillingService.Services
             {
                 MedicineId = medicine.MedicineId,
                 BatchId = batch?.BatchId,
+                Batch = batch,
                 Type = "Adjust",
                 Quantity = Math.Abs(afterQty - beforeQty),
                 BeforeQuantity = beforeQty,
@@ -174,8 +178,6 @@ namespace PharmacyBillingService.Services
             }
             else
             {
-                medicine.Status = afterQty == 0 ? "OutOfStock" : "Active";
-                medicine.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
 
@@ -257,6 +259,39 @@ namespace PharmacyBillingService.Services
                 AfterQuantity = afterQty,
                 UpdatedAt = DateTime.UtcNow
             });
+        }
+
+        private async Task<MedicineBatch?> SyncDefaultBatchForTotalAsync(Medicine medicine, int totalQuantity)
+        {
+            var defaultBatchNumber = $"INIT-{medicine.MedicineId}";
+            var defaultBatch = await _context.MedicineBatches
+                .FirstOrDefaultAsync(b => b.MedicineId == medicine.MedicineId && b.BatchNumber == defaultBatchNumber);
+
+            if (defaultBatch == null)
+            {
+                var hasAnyBatch = await _context.MedicineBatches.AnyAsync(b => b.MedicineId == medicine.MedicineId);
+                if (hasAnyBatch) return null;
+
+                defaultBatch = new MedicineBatch
+                {
+                    MedicineId = medicine.MedicineId,
+                    BatchNumber = defaultBatchNumber,
+                    ExpiryDate = medicine.ExpiryDate,
+                    Quantity = totalQuantity,
+                    InitialQuantity = totalQuantity,
+                    Status = totalQuantity == 0 ? "OutOfStock" : "Active",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.MedicineBatches.Add(defaultBatch);
+                return defaultBatch;
+            }
+
+            defaultBatch.ExpiryDate = medicine.ExpiryDate;
+            defaultBatch.Quantity = totalQuantity;
+            defaultBatch.InitialQuantity = Math.Max(defaultBatch.InitialQuantity, totalQuantity);
+            defaultBatch.Status = totalQuantity == 0 ? "OutOfStock" : "Active";
+            defaultBatch.UpdatedAt = DateTime.UtcNow;
+            return defaultBatch;
         }
 
         private void WarnLowStock(Medicine medicine)
