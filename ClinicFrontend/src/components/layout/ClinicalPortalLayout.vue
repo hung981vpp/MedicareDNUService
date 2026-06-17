@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen overflow-hidden bg-[#f4f7fb] text-slate-950">
+  <div class="clinical-portal-shell flex h-screen overflow-hidden bg-[#f4f7fb] text-slate-950">
     <aside
       class="relative hidden shrink-0 flex-col border-r border-slate-200 bg-white/85 shadow-[12px_0_40px_rgba(15,23,42,0.04)] backdrop-blur transition-all duration-300 lg:flex"
       :class="sidebarCollapsed ? 'w-20' : 'w-60'"

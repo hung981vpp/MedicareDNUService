@@ -114,6 +114,26 @@ namespace PharmacyBillingService.Controllers
             }
         }
 
+        [HttpPut("profile/password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto changePasswordDto)
+        {
+            var userId = GetCurrentUserId();
+            if (userId is null) return Unauthorized();
+
+            try
+            {
+                var success = await _authService.ChangePasswordAsync(userId.Value, changePasswordDto);
+                return success
+                    ? Ok(new { Message = "Đổi mật khẩu thành công." })
+                    : NotFound(new { Message = "Không tìm thấy người dùng." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpGet("users/nurses")]
         [Authorize(Roles = RoleConstants.Admin)]
         public async Task<IActionResult> GetNurses()
@@ -174,6 +194,23 @@ namespace PharmacyBillingService.Controllers
             {
                 var success = await _authService.DeleteUserAsync(id);
                 return success ? Ok(new { Message = "Xoa tai khoan thanh cong." }) : NotFound(new { Message = "Khong tim thay nguoi dung." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPut("users/{id}/password")]
+        [Authorize(Roles = RoleConstants.Admin)]
+        public async Task<IActionResult> ResetPassword(int id, [FromBody] AdminResetPasswordDto resetPasswordDto)
+        {
+            try
+            {
+                var success = await _authService.ResetPasswordAsync(id, resetPasswordDto);
+                return success
+                    ? Ok(new { Message = "Cập nhật mật khẩu thành công." })
+                    : NotFound(new { Message = "Không tìm thấy người dùng." });
             }
             catch (InvalidOperationException ex)
             {

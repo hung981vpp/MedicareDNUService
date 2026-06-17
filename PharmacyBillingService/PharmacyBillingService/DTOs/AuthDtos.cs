@@ -75,6 +75,33 @@ namespace PharmacyBillingService.DTOs
         public string? PhoneNumber { get; set; }
     }
 
+    public class ChangePasswordDto
+    {
+        [Required(ErrorMessage = "Mật khẩu hiện tại là bắt buộc")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Mật khẩu mới là bắt buộc")]
+        [MinLength(6, ErrorMessage = "Mật khẩu mới tối thiểu 6 ký tự")]
+        [MaxLength(100, ErrorMessage = "Mật khẩu mới tối đa 100 ký tự")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Vui lòng xác nhận mật khẩu mới")]
+        [Compare(nameof(NewPassword), ErrorMessage = "Xác nhận mật khẩu mới không khớp")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    public class AdminResetPasswordDto
+    {
+        [Required(ErrorMessage = "Mật khẩu mới là bắt buộc")]
+        [MinLength(6, ErrorMessage = "Mật khẩu mới tối thiểu 6 ký tự")]
+        [MaxLength(100, ErrorMessage = "Mật khẩu mới tối đa 100 ký tự")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Vui lòng xác nhận mật khẩu mới")]
+        [Compare(nameof(NewPassword), ErrorMessage = "Xác nhận mật khẩu mới không khớp")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
     public class UpdateUserDto
     {
         [Required(ErrorMessage = "Họ tên là bắt buộc")]

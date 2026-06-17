@@ -27,6 +27,8 @@ namespace PharmacyBillingService.Services
         Task<CheckDuplicateResponseDto> CheckDuplicateAsync(string? username, string? email, string? phoneNumber);
         Task<UserDto?> GetProfileAsync(int userId);
         Task<UserDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
+        Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto);
+        Task<bool> ResetPasswordAsync(int userId, AdminResetPasswordDto resetPasswordDto);
         Task<List<UserDto>> GetAllUsersAsync();
         Task<List<UserDto>> GetUsersByRolesAsync(List<string> roles);
         Task<UserDto?> UpdateUserAsync(int userId, UpdateUserDto updateDto);
@@ -222,6 +224,43 @@ namespace PharmacyBillingService.Services
 
             await _context.SaveChangesAsync();
             return MapToUserDto(user);
+        }
+
+        public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return false;
+
+            if (!PasswordHasher.VerifyPassword(changePasswordDto.CurrentPassword, user.PasswordHash))
+            {
+                throw new InvalidOperationException("Mật khẩu hiện tại không chính xác.");
+            }
+
+            if (PasswordHasher.VerifyPassword(changePasswordDto.NewPassword, user.PasswordHash))
+            {
+                throw new InvalidOperationException("Mật khẩu mới phải khác mật khẩu hiện tại.");
+            }
+
+            user.PasswordHash = PasswordHasher.HashPassword(changePasswordDto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ResetPasswordAsync(int userId, AdminResetPasswordDto resetPasswordDto)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return false;
+
+            if (PasswordHasher.VerifyPassword(resetPasswordDto.NewPassword, user.PasswordHash))
+            {
+                throw new InvalidOperationException("Mật khẩu mới phải khác mật khẩu hiện tại của tài khoản.");
+            }
+
+            user.PasswordHash = PasswordHasher.HashPassword(resetPasswordDto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<List<UserDto>> GetAllUsersAsync()

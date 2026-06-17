@@ -169,6 +169,7 @@ app.Map("/{service}/swagger/{**path}", async (
     await ProxySwaggerAsync(service, path ?? string.Empty, context, httpClientFactory, appointmentBaseUrl, medicalBaseUrl, pharmacyBaseUrl);
 }).AllowAnonymous();
 
+app.UseWebSockets();
 await app.UseOcelot();
 
 app.Run();

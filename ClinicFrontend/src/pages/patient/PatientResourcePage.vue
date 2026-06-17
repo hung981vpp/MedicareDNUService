@@ -164,6 +164,51 @@
       </form>
     </div>
 
+    <div v-if="resource === 'profile'" class="rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div class="flex items-start gap-3 border-b border-slate-100 px-4 py-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+          <KeyRound class="h-5 w-5" />
+        </span>
+        <div>
+          <h2 class="text-base font-bold text-slate-950">Bảo mật tài khoản</h2>
+          <p class="mt-1 text-sm text-slate-500">Đổi mật khẩu đăng nhập của bạn.</p>
+        </div>
+      </div>
+
+      <form class="space-y-4 p-4" @submit.prevent="changePassword">
+        <div class="grid gap-4 md:grid-cols-3">
+          <label class="block">
+            <span class="mb-1.5 block text-sm font-medium text-slate-700">Mật khẩu hiện tại <span class="text-rose-600">*</span></span>
+            <span class="relative block">
+              <KeyRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input v-model="passwordForm.currentPassword" type="password" required autocomplete="current-password" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
+            </span>
+          </label>
+          <label class="block">
+            <span class="mb-1.5 block text-sm font-medium text-slate-700">Mật khẩu mới <span class="text-rose-600">*</span></span>
+            <span class="relative block">
+              <KeyRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input v-model="passwordForm.newPassword" type="password" required minlength="6" autocomplete="new-password" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
+            </span>
+          </label>
+          <label class="block">
+            <span class="mb-1.5 block text-sm font-medium text-slate-700">Xác nhận mật khẩu mới <span class="text-rose-600">*</span></span>
+            <span class="relative block">
+              <KeyRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input v-model="passwordForm.confirmPassword" type="password" required minlength="6" autocomplete="new-password" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
+            </span>
+          </label>
+        </div>
+        <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-xs leading-5 text-slate-500">Mật khẩu mới cần tối thiểu 6 ký tự và phải khác mật khẩu hiện tại.</p>
+          <BaseButton type="submit" :loading="passwordSaving">
+            <template #icon><KeyRound class="h-4 w-4" /></template>
+            Đổi mật khẩu
+          </BaseButton>
+        </div>
+      </form>
+    </div>
+
     <div v-else-if="resource === 'appointments'" class="appointment-table-shell">
       <ATable
         :columns="appointmentTableColumns"
@@ -647,12 +692,13 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
-import { AtSign, CalendarClock, CalendarDays, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Copy, CreditCard, Droplet, Eye, FileHeart, HeartPulse, IdCard, Mail, MapPin, Phone, Pill, Save, Search, SearchX, ShieldAlert, UserRound, VenetianMask, X } from 'lucide-vue-next'
+import { AtSign, CalendarClock, CalendarDays, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Copy, CreditCard, Droplet, Eye, FileHeart, HeartPulse, IdCard, KeyRound, Mail, MapPin, Phone, Pill, Save, Search, SearchX, ShieldAlert, UserRound, VenetianMask, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { appointmentApi } from '@/services/appointmentApi'
+import { authApi } from '@/services/authApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi, type PatientMedicalHistory } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
@@ -685,6 +731,7 @@ const detailRow = ref<Row | null>(null)
 const paymentOpen = ref(false)
 const paymentRow = ref<Row | null>(null)
 const profileSaving = ref(false)
+const passwordSaving = ref(false)
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const profileForm = reactive({
   fullName: '',
@@ -697,6 +744,11 @@ const profileForm = reactive({
   bloodType: '',
   allergyNote: '',
   medicalHistory: '',
+})
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
 })
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
@@ -1355,6 +1407,38 @@ async function saveProfile() {
     showToast('Chưa lưu được hồ sơ', error.value, 'error')
   } finally {
     profileSaving.value = false
+  }
+}
+
+async function changePassword() {
+  if (passwordForm.newPassword.length < 6) {
+    showToast('Mật khẩu chưa hợp lệ', 'Mật khẩu mới phải có ít nhất 6 ký tự.', 'error')
+    return
+  }
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    showToast('Xác nhận chưa khớp', 'Vui lòng nhập lại đúng mật khẩu mới.', 'error')
+    return
+  }
+  if (passwordForm.currentPassword === passwordForm.newPassword) {
+    showToast('Mật khẩu chưa thay đổi', 'Mật khẩu mới phải khác mật khẩu hiện tại.', 'error')
+    return
+  }
+
+  passwordSaving.value = true
+  try {
+    await authApi.changePassword({
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword,
+      confirmPassword: passwordForm.confirmPassword,
+    })
+    passwordForm.currentPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+    showToast('Đổi mật khẩu thành công', 'Bạn có thể sử dụng mật khẩu mới ở lần đăng nhập tiếp theo.', 'success')
+  } catch (apiError) {
+    showToast('Chưa đổi được mật khẩu', getApiErrorMessage(apiError), 'error')
+  } finally {
+    passwordSaving.value = false
   }
 }
 
