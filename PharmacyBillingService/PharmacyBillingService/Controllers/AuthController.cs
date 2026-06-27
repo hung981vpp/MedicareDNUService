@@ -38,6 +38,68 @@ namespace PharmacyBillingService.Controllers
             }
         }
 
+        [HttpPost("google-login")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginDto googleLoginDto)
+        {
+            try
+            {
+                var result = await _authService.GoogleLoginAsync(googleLoginDto);
+                return result == null
+                    ? BadRequest(new { Message = "Đăng nhập bằng Google thất bại." })
+                    : Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPost("forgot-password/initiate")]
+        [AllowAnonymous]
+        public async Task<IActionResult> InitiateReset([FromBody] InitiateResetDto dto)
+        {
+            try
+            {
+                await _authService.InitiateResetAsync(dto);
+                return Ok(new { Message = "Mã OTP đã được gửi về email của bạn." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPost("forgot-password/verify-otp")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpDto dto)
+        {
+            try
+            {
+                var resetToken = await _authService.VerifyOtpAsync(dto);
+                return Ok(new { ResetToken = resetToken });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPost("forgot-password/reset")]
+        [AllowAnonymous]
+        public async Task<IActionResult> CompleteReset([FromBody] ResetPasswordDto dto)
+        {
+            try
+            {
+                await _authService.CompleteResetAsync(dto);
+                return Ok(new { Message = "Mật khẩu của bạn đã được thay đổi thành công." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)

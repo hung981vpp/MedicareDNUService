@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
@@ -17,13 +18,18 @@ using PharmacyBillingService.Helpers;
 using PharmacyBillingService.Models;
 using Microsoft.IdentityModel.Tokens;
 using PharmacyBillingService.Security;
+using Google.Apis.Auth;
 
 namespace PharmacyBillingService.Services
 {
     public interface IAuthService
     {
         Task<LoginResponseDto?> LoginAsync(LoginDto loginDto);
+        Task<LoginResponseDto?> GoogleLoginAsync(GoogleLoginDto googleLoginDto);
         Task<UserDto> RegisterAsync(RegisterDto registerDto);
+        Task<bool> InitiateResetAsync(InitiateResetDto dto);
+        Task<string> VerifyOtpAsync(VerifyOtpDto dto);
+        Task<bool> CompleteResetAsync(ResetPasswordDto dto);
         Task<CheckDuplicateResponseDto> CheckDuplicateAsync(string? username, string? email, string? phoneNumber);
         Task<UserDto?> GetProfileAsync(int userId);
         Task<UserDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
@@ -44,6 +50,9 @@ namespace PharmacyBillingService.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
 
+        private static readonly ConcurrentDictionary<string, (string Otp, DateTime Expiry)> _resetOtps = new();
+        private static readonly ConcurrentDictionary<string, (string Email, DateTime Expiry)> _resetTokens = new();
+
         public AuthService(
             PharmacyDbContext context,
             JwtHelper jwtHelper,
@@ -54,6 +63,95 @@ namespace PharmacyBillingService.Services
             _jwtHelper = jwtHelper;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+        }
+
+        public async Task<LoginResponseDto?> GoogleLoginAsync(GoogleLoginDto googleLoginDto)
+        {
+            var googleClientId = _configuration["Authentication:GoogleClientId"];
+            if (string.IsNullOrEmpty(googleClientId))
+            {
+                throw new InvalidOperationException("Google Client ID chưa được cấu hình.");
+            }
+
+            GoogleJsonWebSignature.Payload payload;
+            try
+            {
+                payload = await GoogleJsonWebSignature.ValidateAsync(googleLoginDto.IdToken, new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { googleClientId }
+                });
+            }
+            catch (InvalidJwtException ex)
+            {
+                throw new InvalidOperationException("Token Google không hợp lệ hoặc đã hết hạn: " + ex.Message);
+            }
+
+            var email = payload.Email.ToLower().Trim();
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+
+            if (user != null)
+            {
+                // BR18: Chỉ tài khoản Active mới được đăng nhập
+                if (user.Status != "Active")
+                {
+                    throw new InvalidOperationException("Tài khoản đã bị khóa.");
+                }
+
+                var token = _jwtHelper.GenerateToken(user);
+                return new LoginResponseDto
+                {
+                    Token = token,
+                    User = MapToUserDto(user)
+                };
+            }
+            else
+            {
+                // Tự động đăng ký người dùng mới
+                var username = BuildUsernameFromEmail(email);
+                var baseUsername = username;
+                int counter = 1;
+                while (await _context.Users.AnyAsync(u => u.Username == username))
+                {
+                    username = $"{baseUsername}{counter++}";
+                }
+
+                var fullName = payload.Name ?? (payload.GivenName + " " + payload.FamilyName) ?? "Google User";
+
+                var registerDto = new RegisterDto
+                {
+                    FullName = fullName,
+                    Email = email,
+                    Username = username,
+                    Password = Guid.NewGuid().ToString("N"),
+                    Role = RoleConstants.Patient
+                };
+
+                // Tạo hồ sơ bệnh nhân ở MedicalAPI
+                int patientId = await CreateMedicalPatientAsync(registerDto);
+
+                var newUser = new User
+                {
+                    FullName = CapitalizeFullName(fullName),
+                    Email = email,
+                    Username = username,
+                    PhoneNumber = null,
+                    PatientId = patientId,
+                    PasswordHash = PasswordHasher.HashPassword(Guid.NewGuid().ToString("N")),
+                    Role = RoleConstants.Patient,
+                    Status = "Active",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+
+                var token = _jwtHelper.GenerateToken(newUser);
+                return new LoginResponseDto
+                {
+                    Token = token,
+                    User = MapToUserDto(newUser)
+                };
+            }
         }
 
         public async Task<LoginResponseDto?> LoginAsync(LoginDto loginDto)
@@ -397,6 +495,141 @@ namespace PharmacyBillingService.Services
             user.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<bool> InitiateResetAsync(InitiateResetDto dto)
+        {
+            var email = dto.Email.ToLower().Trim();
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            if (user == null)
+            {
+                throw new InvalidOperationException("Không tìm thấy tài khoản với email này.");
+            }
+
+            // Generate a 6-digit OTP
+            var otp = Random.Shared.Next(100000, 999999).ToString();
+            var expiry = DateTime.UtcNow.AddMinutes(5);
+            _resetOtps[email] = (otp, expiry);
+
+            // Print OTP to console/log for testing
+            Console.WriteLine($"[RESET PASSWORD OTP] Gửi OTP {otp} tới email {email}");
+
+            // Attempt SMTP sending
+            try
+            {
+                await SendOtpEmailAsync(email, otp);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SMTP ERROR] Không thể gửi email thực tế: {ex.Message}. Sử dụng mã OTP trên console để test.");
+            }
+
+            return true;
+        }
+
+        public async Task<string> VerifyOtpAsync(VerifyOtpDto dto)
+        {
+            var email = dto.Email.ToLower().Trim();
+            var otp = dto.OtpCode.Trim();
+
+            if (!_resetOtps.TryGetValue(email, out var otpData))
+            {
+                throw new InvalidOperationException("Mã OTP không tồn tại hoặc đã hết hạn.");
+            }
+
+            if (otpData.Expiry < DateTime.UtcNow)
+            {
+                _resetOtps.TryRemove(email, out _);
+                throw new InvalidOperationException("Mã OTP đã hết hạn.");
+            }
+
+            if (otpData.Otp != otp)
+            {
+                throw new InvalidOperationException("Mã OTP không chính xác.");
+            }
+
+            // OTP is valid! Remove it
+            _resetOtps.TryRemove(email, out _);
+
+            // Generate a temporary ResetToken
+            var resetToken = Guid.NewGuid().ToString("N");
+            var tokenExpiry = DateTime.UtcNow.AddMinutes(10);
+            _resetTokens[resetToken] = (email, tokenExpiry);
+
+            return resetToken;
+        }
+
+        public async Task<bool> CompleteResetAsync(ResetPasswordDto dto)
+        {
+            var token = dto.ResetToken.Trim();
+            if (!_resetTokens.TryGetValue(token, out var tokenData))
+            {
+                throw new InvalidOperationException("Yêu cầu khôi phục không hợp lệ hoặc đã hết hạn.");
+            }
+
+            if (tokenData.Expiry < DateTime.UtcNow)
+            {
+                _resetTokens.TryRemove(token, out _);
+                throw new InvalidOperationException("Yêu cầu khôi phục đã hết hạn.");
+            }
+
+            var email = tokenData.Email;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            if (user == null)
+            {
+                throw new InvalidOperationException("Không tìm thấy tài khoản liên kết với yêu cầu này.");
+            }
+
+            // Update password
+            user.PasswordHash = PasswordHasher.HashPassword(dto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            // Clean up token
+            _resetTokens.TryRemove(token, out _);
+
+            return true;
+        }
+
+        private async Task SendOtpEmailAsync(string email, string otp)
+        {
+            var smtpHost = _configuration["Smtp:Host"];
+            var smtpPortStr = _configuration["Smtp:Port"];
+            var smtpUser = _configuration["Smtp:Username"];
+            var smtpPass = _configuration["Smtp:Password"];
+            var enableSsl = _configuration.GetValue<bool>("Smtp:EnableSsl", true);
+
+            if (string.IsNullOrEmpty(smtpHost) || string.IsNullOrEmpty(smtpUser))
+            {
+                Console.WriteLine("[SMTP] SMTP chưa được cấu hình. Chỉ in OTP ra console.");
+                return;
+            }
+
+            int.TryParse(smtpPortStr, out var smtpPort);
+            if (smtpPort == 0) smtpPort = 587;
+
+            using var client = new System.Net.Mail.SmtpClient(smtpHost, smtpPort)
+            {
+                Credentials = new System.Net.NetworkCredential(smtpUser, smtpPass),
+                EnableSsl = enableSsl
+            };
+
+            var mailMessage = new System.Net.Mail.MailMessage
+            {
+                From = new System.Net.Mail.MailAddress(smtpUser, "MedicareDNU"),
+                Subject = "Mã xác thực khôi phục mật khẩu - MedicareDNU",
+                Body = $@"
+                    <h3>Khôi phục mật khẩu MedicareDNU</h3>
+                    <p>Xin chào,</p>
+                    <p>Bạn đã yêu cầu khôi phục mật khẩu. Mã OTP của bạn là:</p>
+                    <h2 style='color: #0F52BA; letter-spacing: 2px;'>{otp}</h2>
+                    <p>Mã này có hiệu lực trong vòng 5 phút. Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
+                    <p>Trân trọng,<br/>Đội ngũ hỗ trợ MedicareDNU</p>",
+                IsBodyHtml = true
+            };
+
+            mailMessage.To.Add(email);
+            await client.SendMailAsync(mailMessage);
         }
 
         private static UserDto MapToUserDto(User user)

@@ -9,6 +9,22 @@
       "Priority": 100
     },
     {
+      "UpstreamPathTemplate": "/pharmacy/api/auth/google-login",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/auth/google-login",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
+      "UpstreamPathTemplate": "/pharmacy/api/auth/forgot-password/{everything}",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/auth/forgot-password/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "pharmacy-billing-service", "Port": 8080 } ],
+      "Priority": 100
+    },
+    {
       "UpstreamPathTemplate": "/pharmacy/api/auth/register",
       "UpstreamHttpMethod": [ "POST" ],
       "DownstreamPathTemplate": "/api/auth/register",
