@@ -1,11 +1,12 @@
 <template>
-  <section class="min-h-screen bg-[#f8fafc] py-2 sm:py-3">
+  <section class="profile-page min-h-screen bg-[#F8FAFC] py-2 sm:py-3">
     <FullscreenLoader :show="loading" />
 
     <div class="mx-auto max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
-      <header class="px-1">
+      <!-- NON-PROFILE PAGES: original header -->
+      <header v-if="resource !== 'profile'" class="px-1">
         <h1 class="text-[1.75rem] font-bold tracking-normal text-slate-950">{{ config.title }}</h1>
-        <p :class="['mt-1.5 text-[13px] leading-5 text-slate-500', resource !== 'profile' ? 'font-medium' : '']">{{ config.description }}</p>
+        <p class="mt-1.5 text-[13px] font-medium leading-5 text-slate-500">{{ config.description }}</p>
       </header>
 
     <div v-if="resource === 'records'" class="grid gap-4 sm:grid-cols-3">
@@ -16,198 +17,360 @@
       </div>
     </div>
 
-    <div v-if="note && resource === 'profile'" class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90]">{{ note }}</div>
-    <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ error }}</div>
-
-    <div v-if="resource === 'profile'" class="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div class="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-4">
-          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
-            <UserRound class="h-5 w-5" />
-          </span>
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Hồ sơ bệnh nhân</p>
-            <h2 class="mt-1 text-xl font-bold text-slate-950">{{ profileForm.fullName || authStore.user?.username || 'Bệnh nhân' }}</h2>
-            <p class="mt-1 text-xs text-slate-500">Cập nhật lần cuối: {{ formatDate(currentPatient?.updatedAt || currentPatient?.createdAt) }}</p>
-          </div>
-        </div>
-        <span class="inline-flex h-8 items-center rounded-lg bg-blue-50 px-3 font-mono text-xs font-semibold text-[#0F52BA]">
-          {{ displayPatientCode }}
-        </span>
-      </div>
-
-      <form class="space-y-4 p-4" @submit.prevent="saveProfile">
-        <section class="space-y-3">
-          <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <Mail class="h-4 w-4 text-[#0F52BA]" />
-            Thông tin liên hệ
-          </h3>
-          <div class="grid gap-3 md:grid-cols-4">
-            <label class="block md:col-span-2">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Họ và tên <span class="text-rose-600">*</span></span>
-              <span class="relative block">
-                <UserRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input v-model="profileForm.fullName" required class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
-              </span>
-            </label>
-            <label class="block md:col-span-2">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Tên đăng nhập</span>
-              <span class="relative block">
-                <AtSign class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input :value="authStore.user?.username || ''" disabled class="h-10 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-500 outline-none" />
-              </span>
-            </label>
-            <label class="block md:col-span-2">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Email <span class="text-rose-600">*</span></span>
-              <span class="relative block">
-                <Mail class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input v-model="profileForm.email" type="email" required class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
-              </span>
-            </label>
-            <label class="block md:col-span-2">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Số điện thoại</span>
-              <span class="relative block">
-                <Phone class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input v-model="profileForm.phoneNumber" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
-              </span>
-            </label>
-          </div>
-        </section>
-
-        <section class="space-y-3 border-t border-slate-100 pt-4">
-          <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <IdCard class="h-4 w-4 text-[#0F52BA]" />
-            Thông tin cá nhân
-          </h3>
-          <div class="grid gap-3 md:grid-cols-4">
-            <label class="block">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Số CCCD</span>
-              <span class="relative block">
-                <IdCard class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input v-model="profileForm.citizenId" inputmode="numeric" maxlength="12" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" @input="handleCitizenInput(($event.target as HTMLInputElement).value)" />
-              </span>
-            </label>
-            <label class="block">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Ngày sinh</span>
-              <span class="relative block">
-                <CalendarDays class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input v-model="profileForm.dateOfBirth" type="date" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
-              </span>
-            </label>
-            <label class="block">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Giới tính</span>
-              <span class="relative block">
-                <VenetianMask class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select
-                  v-model="profileForm.gender"
-                  class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="">Chưa chọn</option>
-                  <option value="Nam">Nam</option>
-                  <option value="Nữ">Nữ</option>
-                  <option value="Khác">Khác</option>
-                </select>
-              </span>
-            </label>
-            <label class="block">
-              <span class="mb-1.5 block text-sm font-medium text-slate-700">Nhóm máu</span>
-              <span class="relative block">
-                <Droplet class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select
-                  v-model="profileForm.bloodType"
-                  class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="">Chưa rõ</option>
-                  <option v-for="type in bloodTypes" :key="type" :value="type">{{ type }}</option>
-                </select>
-              </span>
-            </label>
-          </div>
-        </section>
-
-        <section class="space-y-3 border-t border-slate-100 pt-4">
-          <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <HeartPulse class="h-4 w-4 text-[#0F52BA]" />
-            Thông tin y tế
-          </h3>
-          <div class="grid gap-3 md:grid-cols-3">
-            <label class="block md:col-span-2">
-              <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700">
-                <MapPin class="h-3.5 w-3.5 text-slate-400" />
-                Địa chỉ
-              </span>
-              <textarea v-model="profileForm.address" rows="2" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" placeholder="Nhập địa chỉ hiện tại"></textarea>
-            </label>
-            <label class="block">
-              <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700">
-                <ShieldAlert class="h-3.5 w-3.5 text-slate-400" />
-                Dị ứng
-              </span>
-              <textarea v-model="profileForm.allergyNote" rows="2" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" placeholder="VD: Không có, dị ứng penicillin..."></textarea>
-            </label>
-            <label class="block md:col-span-3">
-              <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-700">
-                <ClipboardList class="h-3.5 w-3.5 text-slate-400" />
-                Tiền sử bệnh
-              </span>
-              <textarea v-model="profileForm.medicalHistory" rows="2" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" placeholder="VD: Tăng huyết áp, tiểu đường..."></textarea>
-            </label>
-          </div>
-        </section>
-
-        <div class="flex justify-end border-t border-slate-100 pt-4">
-          <BaseButton type="submit" :loading="profileSaving">
-            <template #icon><Save class="h-4 w-4" /></template>
-            Lưu hồ sơ
-          </BaseButton>
-        </div>
-      </form>
+    <div v-if="note && resource === 'profile'" class="profile-note-banner">
+      <CircleAlert class="h-4 w-4 shrink-0 text-[#2563EB]" />
+      <span>{{ note }}</span>
     </div>
+    <div v-if="error" class="rounded-[18px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ error }}</div>
 
-    <div v-if="resource === 'profile'" class="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div class="flex items-start gap-3 border-b border-slate-100 px-4 py-4">
-        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-          <KeyRound class="h-5 w-5" />
-        </span>
+    <!-- ======================== PROFILE PAGE REDESIGN ======================== -->
+    <template v-if="resource === 'profile'">
+
+      <!-- PAGE HEADER -->
+      <header class="profile-page-header">
         <div>
-          <h2 class="text-base font-bold text-slate-950">Bảo mật tài khoản</h2>
-          <p class="mt-1 text-sm text-slate-500">Đổi mật khẩu đăng nhập của bạn.</p>
+          <h1 class="profile-page-title">Hồ sơ cá nhân</h1>
+          <p class="profile-page-subtitle">Quản lý thông tin tài khoản và hồ sơ bệnh nhân của bạn.</p>
+        </div>
+        <button type="button" class="profile-edit-btn" @click="profileEditMode = !profileEditMode">
+          <Pencil class="h-4 w-4" />
+          {{ profileEditMode ? 'Hủy chỉnh sửa' : 'Chỉnh sửa hồ sơ' }}
+        </button>
+      </header>
+
+      <!-- PROFILE SUMMARY CARD -->
+      <div class="profile-summary-card">
+        <div class="profile-summary-left">
+          <div class="profile-avatar-wrapper">
+            <div class="profile-avatar">
+              <UserRound class="h-9 w-9" />
+            </div>
+            <span class="profile-avatar-badge">
+              <CircleCheck class="h-4 w-4" />
+            </span>
+          </div>
+          <div class="profile-identity">
+            <p class="profile-identity-label">HỒ SƠ BỆNH NHÂN</p>
+            <h2 class="profile-identity-name">{{ profileForm.fullName || authStore.user?.username || 'Bệnh nhân' }}</h2>
+            <div class="profile-identity-meta">
+              <span class="profile-patient-badge">{{ displayPatientCode }}</span>
+              <span class="profile-updated-text">Cập nhật lần cuối: {{ formatDate(currentPatient?.updatedAt || currentPatient?.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="profile-summary-divider"></div>
+        <div class="profile-stats">
+          <div class="profile-stat">
+            <div class="profile-stat-icon">
+              <CalendarDays class="h-4 w-4" />
+            </div>
+            <div>
+              <p class="profile-stat-label">Tuổi</p>
+              <p class="profile-stat-value">{{ profileAge }}</p>
+              <p class="profile-stat-sub">{{ profileForm.dateOfBirth ? formatDate(profileForm.dateOfBirth) : '' }}</p>
+            </div>
+          </div>
+          <div class="profile-stat-separator"></div>
+          <div class="profile-stat">
+            <div class="profile-stat-icon profile-stat-icon--red">
+              <Droplet class="h-4 w-4" />
+            </div>
+            <div>
+              <p class="profile-stat-label">Nhóm máu</p>
+              <p class="profile-stat-value">{{ profileForm.bloodType || '—' }}</p>
+              <p class="profile-stat-sub">{{ profileForm.bloodType ? `Rh(${profileForm.bloodType.includes('+') ? '+' : profileForm.bloodType.includes('-') ? '-' : '?'})` : '' }}</p>
+            </div>
+          </div>
+          <div class="profile-stat-separator"></div>
+          <div class="profile-stat">
+            <div class="profile-stat-icon profile-stat-icon--purple">
+              <ShieldCheck class="h-4 w-4" />
+            </div>
+            <div>
+              <p class="profile-stat-label">Giới tính</p>
+              <p class="profile-stat-value">{{ profileForm.gender || '—' }}</p>
+            </div>
+          </div>
+          <div class="profile-stat-separator"></div>
+          <div class="profile-stat">
+            <div class="profile-stat-icon profile-stat-icon--green">
+              <HeartPulse class="h-4 w-4" />
+            </div>
+            <div>
+              <p class="profile-stat-label">Tình trạng</p>
+              <p class="profile-status-pill">Ổn định</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <form class="space-y-4 p-4" @submit.prevent="changePassword">
-        <div class="grid gap-4 md:grid-cols-3">
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-medium text-slate-700">Mật khẩu hiện tại <span class="text-rose-600">*</span></span>
-            <span class="relative block">
-              <KeyRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input v-model="passwordForm.currentPassword" type="password" required autocomplete="current-password" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
-            </span>
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-medium text-slate-700">Mật khẩu mới <span class="text-rose-600">*</span></span>
-            <span class="relative block">
-              <KeyRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input v-model="passwordForm.newPassword" type="password" required minlength="6" autocomplete="new-password" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
-            </span>
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-medium text-slate-700">Xác nhận mật khẩu mới <span class="text-rose-600">*</span></span>
-            <span class="relative block">
-              <KeyRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input v-model="passwordForm.confirmPassword" type="password" required minlength="6" autocomplete="new-password" class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100" />
-            </span>
-          </label>
+      <!-- MAIN CONTENT: Two-column layout -->
+      <div class="profile-content-grid">
+
+        <!-- LEFT COLUMN -->
+        <form class="profile-left-col" @submit.prevent="saveProfile">
+
+          <!-- Card 1: Thông tin liên hệ -->
+          <section class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon">
+                <Mail class="h-[18px] w-[18px]" />
+              </div>
+              <h3 class="profile-card-title">Thông tin liên hệ</h3>
+            </div>
+            <div class="profile-card-body">
+              <div class="profile-form-grid-2">
+                <div class="profile-field">
+                  <label class="profile-field-label">Họ và tên <span class="text-rose-500">*</span></label>
+                  <div class="profile-input-wrap">
+                    <UserRound class="profile-input-icon" />
+                    <input v-model="profileForm.fullName" required :disabled="!profileEditMode" :class="['profile-input', !profileEditMode && 'profile-input--disabled']" placeholder="Nhập họ và tên" />
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Tên đăng nhập</label>
+                  <div class="profile-input-wrap">
+                    <AtSign class="profile-input-icon" />
+                    <input :value="authStore.user?.username || ''" disabled class="profile-input profile-input--with-action profile-input--disabled" />
+                    <button type="button" class="profile-copy-btn" title="Copy tên đăng nhập" @click="copyText(authStore.user?.username || '')">
+                      <Copy class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Email <span class="text-rose-500">*</span></label>
+                  <div class="profile-input-wrap">
+                    <Mail class="profile-input-icon" />
+                    <input v-model="profileForm.email" type="email" required :disabled="!profileEditMode" :class="['profile-input', !profileEditMode && 'profile-input--disabled']" placeholder="Nhập email" />
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Số điện thoại</label>
+                  <div class="profile-input-wrap">
+                    <Phone class="profile-input-icon" />
+                    <input v-model="profileForm.phoneNumber" :disabled="!profileEditMode" :class="['profile-input profile-input--with-action', !profileEditMode && 'profile-input--disabled']" placeholder="Nhập số điện thoại" />
+                    <button type="button" class="profile-copy-btn" title="Copy số điện thoại" @click="copyText(profileForm.phoneNumber)">
+                      <Copy class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Card 2: Thông tin cá nhân -->
+          <section class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon profile-card-icon--indigo">
+                <IdCard class="h-[18px] w-[18px]" />
+              </div>
+              <h3 class="profile-card-title">Thông tin cá nhân</h3>
+            </div>
+            <div class="profile-card-body">
+              <div class="profile-form-grid-4">
+                <div class="profile-field">
+                  <label class="profile-field-label">CCCD</label>
+                  <div class="profile-input-wrap">
+                    <IdCard class="profile-input-icon" />
+                    <input v-model="profileForm.citizenId" inputmode="numeric" maxlength="12" :disabled="!profileEditMode" :class="['profile-input profile-input--with-action profile-input--mono', !profileEditMode && 'profile-input--disabled']" @input="handleCitizenInput(($event.target as HTMLInputElement).value)" />
+                    <button type="button" class="profile-copy-btn" title="Copy CCCD" @click="copyText(profileForm.citizenId)">
+                      <Copy class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Ngày sinh</label>
+                  <div class="profile-input-wrap">
+                    <CalendarDays class="profile-input-icon" />
+                    <input v-model="profileForm.dateOfBirth" type="date" :disabled="!profileEditMode" :class="['profile-input', !profileEditMode && 'profile-input--disabled']" />
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Giới tính</label>
+                  <div class="profile-input-wrap">
+                    <VenetianMask class="profile-input-icon" />
+                    <select v-model="profileForm.gender" :disabled="!profileEditMode" :class="['profile-input', !profileEditMode && 'profile-input--disabled']">
+                      <option value="">Chưa chọn</option>
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Nhóm máu</label>
+                  <div class="profile-input-wrap">
+                    <Droplet class="profile-input-icon" />
+                    <select v-model="profileForm.bloodType" :disabled="!profileEditMode" :class="['profile-input', !profileEditMode && 'profile-input--disabled']">
+                      <option value="">Chưa rõ</option>
+                      <option v-for="type in bloodTypes" :key="type" :value="type">{{ type }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Card 3: Thông tin y tế -->
+          <section class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon profile-card-icon--rose">
+                <HeartPulse class="h-[18px] w-[18px]" />
+              </div>
+              <h3 class="profile-card-title">Thông tin y tế</h3>
+            </div>
+            <div class="profile-card-body">
+              <div class="profile-form-grid-medical">
+                <div class="profile-field profile-field--wide">
+                  <label class="profile-field-label">
+                    <MapPin class="inline h-3.5 w-3.5 text-slate-400" />
+                    Địa chỉ
+                  </label>
+                  <textarea v-model="profileForm.address" rows="2" :disabled="!profileEditMode" :class="['profile-textarea', !profileEditMode && 'profile-textarea--disabled']" placeholder="Nhập địa chỉ hiện tại"></textarea>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">
+                    <ShieldAlert class="inline h-3.5 w-3.5 text-slate-400" />
+                    Dị ứng
+                  </label>
+                  <textarea v-model="profileForm.allergyNote" rows="2" :disabled="!profileEditMode" :class="['profile-textarea', !profileEditMode && 'profile-textarea--disabled']" placeholder="VD: Không có, dị ứng penicillin..."></textarea>
+                </div>
+                <div class="profile-field profile-field--full">
+                  <label class="profile-field-label">
+                    <ClipboardList class="inline h-3.5 w-3.5 text-slate-400" />
+                    Tiền sử bệnh
+                  </label>
+                  <textarea v-model="profileForm.medicalHistory" rows="3" :disabled="!profileEditMode" :class="['profile-textarea', !profileEditMode && 'profile-textarea--disabled']" placeholder="VD: Tăng huyết áp, tiểu đường..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Save button -->
+            <div v-if="profileEditMode" class="profile-card-footer">
+              <BaseButton type="submit" :loading="profileSaving">
+                <template #icon><Save class="h-4 w-4" /></template>
+                Lưu hồ sơ
+              </BaseButton>
+            </div>
+          </section>
+
+        </form>
+
+        <!-- RIGHT COLUMN -->
+        <div class="profile-right-col">
+
+          <!-- Card: Bảo mật tài khoản -->
+          <div class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon profile-card-icon--slate">
+                <ShieldCheck class="h-[18px] w-[18px]" />
+              </div>
+              <h3 class="profile-card-title">Bảo mật tài khoản</h3>
+            </div>
+            <div class="profile-card-body">
+              <div class="profile-security-visual">
+                <div class="profile-security-shield">
+                  <ShieldCheck class="h-10 w-10 text-[#2563EB]" />
+                </div>
+                <p class="profile-security-text">Tài khoản của bạn được bảo vệ tốt</p>
+              </div>
+              <div class="profile-security-info">
+                <p class="profile-security-label">Lần đăng nhập gần nhất</p>
+                <div class="profile-security-detail">
+                  <span class="profile-security-dot"></span>
+                  <span>{{ lastLoginText }}</span>
+                </div>
+              </div>
+              <button type="button" class="profile-security-btn" @click="profilePasswordMode = !profilePasswordMode">
+                <KeyRound class="h-4 w-4" />
+                Đổi mật khẩu
+              </button>
+            </div>
+          </div>
+
+          <!-- Password form (shown when toggled) -->
+          <div v-if="profilePasswordMode" class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon profile-card-icon--amber">
+                <KeyRound class="h-[18px] w-[18px]" />
+              </div>
+              <h3 class="profile-card-title">Đổi mật khẩu</h3>
+            </div>
+            <form class="profile-card-body" @submit.prevent="changePassword">
+              <div class="profile-password-fields">
+                <div class="profile-field">
+                  <label class="profile-field-label">Mật khẩu hiện tại <span class="text-rose-500">*</span></label>
+                  <div class="profile-input-wrap">
+                    <KeyRound class="profile-input-icon" />
+                    <input v-model="passwordForm.currentPassword" type="password" required autocomplete="current-password" class="profile-input" />
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Mật khẩu mới <span class="text-rose-500">*</span></label>
+                  <div class="profile-input-wrap">
+                    <KeyRound class="profile-input-icon" />
+                    <input v-model="passwordForm.newPassword" type="password" required minlength="6" autocomplete="new-password" class="profile-input" />
+                  </div>
+                </div>
+                <div class="profile-field">
+                  <label class="profile-field-label">Xác nhận mật khẩu <span class="text-rose-500">*</span></label>
+                  <div class="profile-input-wrap">
+                    <KeyRound class="profile-input-icon" />
+                    <input v-model="passwordForm.confirmPassword" type="password" required minlength="6" autocomplete="new-password" class="profile-input" />
+                  </div>
+                </div>
+              </div>
+              <p class="mt-3 text-[11px] leading-4 text-slate-400">Mật khẩu mới tối thiểu 6 ký tự, khác mật khẩu hiện tại.</p>
+              <div class="mt-4">
+                <BaseButton type="submit" :loading="passwordSaving" size="sm">
+                  <template #icon><KeyRound class="h-4 w-4" /></template>
+                  Đổi mật khẩu
+                </BaseButton>
+              </div>
+            </form>
+          </div>
+
+          <!-- Card: Lưu ý sức khỏe -->
+          <div class="profile-health-note-card">
+            <div class="profile-health-note-header">
+              <HeartPulse class="h-5 w-5 text-emerald-600" />
+              <h3 class="profile-health-note-title">Lưu ý sức khỏe</h3>
+            </div>
+            <div class="profile-health-note-body">
+              <div class="profile-health-note-illustration">
+                <Stethoscope class="h-12 w-12 text-emerald-400/60" />
+              </div>
+              <p class="profile-health-note-text">
+                Hãy cập nhật thông tin thường xuyên để chúng tôi hỗ trợ bạn tốt hơn!
+              </p>
+            </div>
+          </div>
+
+          <!-- Card: Tải hồ sơ -->
+          <div class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon profile-card-icon--sky">
+                <CloudDownload class="h-[18px] w-[18px]" />
+              </div>
+              <h3 class="profile-card-title">Tải hồ sơ của bạn</h3>
+            </div>
+            <div class="profile-card-body">
+              <div class="profile-download-visual">
+                <CloudDownload class="h-10 w-10 text-sky-400/70" />
+              </div>
+              <p class="profile-download-text">Tạo bản in PDF khổ A4 gồm thông tin cá nhân, lịch hẹn, bệnh án, đơn thuốc và viện phí.</p>
+              <button type="button" class="profile-download-btn" :disabled="profileDownloading" @click="printMedicalProfilePdf">
+                <Download v-if="!profileDownloading" class="h-4 w-4" />
+                <span v-else class="profile-download-spinner"></span>
+                {{ profileDownloading ? 'Đang tạo bản in...' : 'In / tải PDF' }}
+              </button>
+            </div>
+          </div>
+
         </div>
-        <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-xs leading-5 text-slate-500">Mật khẩu mới cần tối thiểu 6 ký tự và phải khác mật khẩu hiện tại.</p>
-          <BaseButton type="submit" :loading="passwordSaving">
-            <template #icon><KeyRound class="h-4 w-4" /></template>
-            Đổi mật khẩu
-          </BaseButton>
-        </div>
-      </form>
-    </div>
+      </div>
+
+    </template>
 
     <div v-else-if="resource === 'appointments'" class="appointment-table-shell">
       <ATable
@@ -270,7 +433,10 @@
             </div>
           </template>
           <template v-else-if="column.key === 'reason'">
-            <span class="line-clamp-2 text-[13px] leading-5 text-slate-600" :title="record.reason">{{ record.reason }}</span>
+            <div class="appointment-reason-cell">
+              <span class="line-clamp-1 text-[13px] leading-5 text-slate-700">{{ appointmentReasonMain(record) }}</span>
+              <span v-if="appointmentReasonMeta(record)" class="appointment-reason-meta">{{ appointmentReasonMeta(record) }}</span>
+            </div>
           </template>
           <template v-else-if="column.key === 'status'">
             <ATag :bordered="false" :class="['appointment-status', appointmentStatusClass(record.status)]">{{ record.status }}</ATag>
@@ -692,7 +858,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
-import { AtSign, CalendarClock, CalendarDays, CheckSquare, ChevronLeft, ChevronRight, ClipboardList, Copy, CreditCard, Droplet, Eye, FileHeart, HeartPulse, IdCard, KeyRound, Mail, MapPin, Phone, Pill, Save, Search, SearchX, ShieldAlert, UserRound, VenetianMask, X } from 'lucide-vue-next'
+import { AtSign, CalendarClock, CalendarDays, CheckSquare, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardList, CloudDownload, Copy, CreditCard, Download, Droplet, Eye, FileHeart, HeartPulse, IdCard, KeyRound, Mail, MapPin, Pencil, Phone, Pill, Save, Search, SearchX, ShieldAlert, ShieldCheck, Stethoscope, UserRound, VenetianMask, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
@@ -715,6 +881,7 @@ interface DetailSection { title: string; icon: any; items: DetailItem[] }
 
 const route = useRoute()
 const authStore = useAuthStore()
+const lastLoginText = ref('')
 const loading = ref(false)
 const error = ref('')
 const note = ref('')
@@ -732,6 +899,9 @@ const paymentOpen = ref(false)
 const paymentRow = ref<Row | null>(null)
 const profileSaving = ref(false)
 const passwordSaving = ref(false)
+const profileEditMode = ref(false)
+const profilePasswordMode = ref(false)
+const profileDownloading = ref(false)
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const profileForm = reactive({
   fullName: '',
@@ -753,6 +923,17 @@ const passwordForm = reactive({
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
 const config = computed(() => configs[resource.value])
+
+const profileAge = computed(() => {
+  if (!profileForm.dateOfBirth) return '—'
+  const birth = new Date(profileForm.dateOfBirth)
+  if (Number.isNaN(birth.getTime())) return '—'
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const monthDiff = now.getMonth() - birth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age--
+  return `${age} tuổi`
+})
 const patientId = computed(() => String(currentPatient.value?.id || currentPatient.value?.patientId || ''))
 const displayPatientCode = computed(() => patientDisplayCode(currentPatient.value) || formatPatientCode(patientId.value) || 'Chưa liên kết')
 
@@ -1064,8 +1245,10 @@ function handlePrescriptionTableChange(pagination: { current?: number; pageSize?
 }
 
 function appointmentColumnFilter(key: string) {
-  return (filterValue: string | number | boolean, record: Row) =>
-    normalizeSearchText(record[key]).includes(normalizeSearchText(filterValue))
+  return (filterValue: string | number | boolean, record: Row) => {
+    const searchValue = key === 'reason' ? record.reasonSearch || record.reason : record[key]
+    return normalizeSearchText(searchValue).includes(normalizeSearchText(filterValue))
+  }
 }
 
 function billColumnFilter(key: string) {
@@ -1178,7 +1361,7 @@ const detailSections = computed<DetailSection[]>(() => {
         items: [
           { label: 'Ngày giờ hẹn', value: String(row.dateTime || formatAppointmentDateTime(row.appointmentDate, row.slotTime) || 'Chưa cập nhật') },
           { label: 'Trạng thái', value: String(row.status || 'Chưa cập nhật') },
-          { label: 'Lý do khám', value: String(row.reason || 'Chưa ghi nhận'), full: true },
+          { label: 'Lý do khám', value: appointmentReasonDetailText(row), full: true },
         ],
       },
     ]
@@ -1261,6 +1444,17 @@ watch(resource, () => {
 
 onMounted(() => {
   window.addEventListener('patient-profile-updated', handlePatientProfileUpdated)
+
+  const lastLogin = localStorage.getItem('cliniccare_last_login')
+  if (lastLogin) {
+    const d = new Date(lastLogin)
+    if (!isNaN(d.getTime())) {
+      lastLoginText.value = `${d.toLocaleDateString('vi-VN')} – ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+    }
+  } else {
+    const now = new Date()
+    lastLoginText.value = `${now.toLocaleDateString('vi-VN')} – ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+  }
 })
 
 onUnmounted(() => {
@@ -1503,6 +1697,7 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
   const specialtyName = cleanDisplayText(getAny(item, 'specialtyName', 'SpecialtyName'))
   const room = appointmentRoom(item)
   const reason = cleanDisplayText(getAny(item, 'reason', 'Reason'))
+  const reasonParts = parseAppointmentReason(reason)
   const status = getAny(item, 'status', 'Status')
 
   return {
@@ -1514,10 +1709,73 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
     appointmentDate,
     slotTime,
     dateTime: formatAppointmentDateTime(appointmentDate, slotTime),
-    reason: reason || 'Chưa ghi nhận',
+    reason: reasonParts.main || 'Chưa ghi nhận',
+    reasonRaw: reason,
+    reasonSupport: reasonParts.support,
+    reasonCompanions: reasonParts.companions,
+    reasonDetails: reasonParts.details,
+    reasonSearch: [reasonParts.main, reasonParts.support, ...reasonParts.companions, reason].filter(Boolean).join(' '),
     status: statusLabel(status),
     raw: item,
   }
+}
+
+function parseAppointmentReason(value: unknown) {
+  const raw = cleanDisplayText(value)
+  if (!raw) return { main: '', support: '', companions: [] as string[], details: [] as string[] }
+
+  const supportMarker = 'Nhu cầu hỗ trợ:'
+  const companionMarker = 'Người đi cùng/người thân:'
+  const supportIndex = raw.indexOf(supportMarker)
+  const companionIndex = raw.indexOf(companionMarker)
+  const markers = [supportIndex, companionIndex].filter((index) => index >= 0)
+  const firstMarker = markers.length ? Math.min(...markers) : -1
+  const main = cleanDisplayText(firstMarker >= 0 ? raw.slice(0, firstMarker) : raw)
+
+  let support = ''
+  if (supportIndex >= 0) {
+    const supportEnd = companionIndex > supportIndex ? companionIndex : raw.length
+    support = cleanDisplayText(raw.slice(supportIndex + supportMarker.length, supportEnd))
+  }
+
+  const companions = companionIndex >= 0
+    ? raw
+        .slice(companionIndex + companionMarker.length)
+        .split(/\n| - (?=[^-:]+ - Quan hệ:)/)
+        .map((item) => cleanDisplayText(item.replace(/^-+\s*/, '')))
+        .filter(Boolean)
+    : []
+
+  const details = [
+    main ? `Lý do chính: ${main}` : '',
+    support ? `Nhu cầu hỗ trợ: ${support}` : '',
+    ...companions.map((item) => `Người đi cùng: ${formatCompanionReason(item)}`),
+  ].filter(Boolean)
+
+  return { main, support, companions, details }
+}
+
+function formatCompanionReason(value: string) {
+  return cleanDisplayText(value.replace(/\s+-\s+/g, ' · '))
+}
+
+function appointmentReasonMain(row: Row) {
+  return cleanDisplayText(row.reason) || cleanDisplayText(row.reasonMain) || 'Chưa ghi nhận'
+}
+
+function appointmentReasonMeta(row: Row) {
+  const support = cleanDisplayText(row.reasonSupport)
+  const companionCount = Array.isArray(row.reasonCompanions) ? row.reasonCompanions.length : 0
+  if (support && companionCount) return `${support} · ${companionCount} người đi cùng`
+  if (support) return support
+  if (companionCount) return `${companionCount} người đi cùng`
+  return ''
+}
+
+function appointmentReasonDetailText(row: Row) {
+  const details = Array.isArray(row.reasonDetails) ? row.reasonDetails.filter(Boolean) : []
+  if (details.length) return details.join('\n')
+  return cleanDisplayText(row.reasonRaw || row.reason) || 'Chưa ghi nhận'
 }
 
 function appointmentRoom(item: Appointment & Record<string, any>) {
@@ -1878,6 +2136,205 @@ function showLoadToast(section: string, count: number, emptyGuide: string) {
   }
 }
 
+async function printMedicalProfilePdf() {
+  if (profileDownloading.value) return
+  profileDownloading.value = true
+  error.value = ''
+  try {
+    await resolvePatient()
+    syncProfileForm()
+    const id = patientId.value
+    if (!id) throw new Error('Chưa tìm thấy mã bệnh nhân để xuất hồ sơ.')
+
+    const [doctorResult, appointmentResult, historyResult, invoiceResult, prescriptionResult] = await Promise.allSettled([
+      appointmentApi.getDoctors(),
+      appointmentApi.getAppointmentsByPatient(id),
+      getHistory(),
+      billingApi.getInvoices(id),
+      billingApi.getPrescriptions(id).catch((err) => {
+        if ((err as any)?.response?.status === 404) return [] as Prescription[]
+        throw err
+      }),
+    ])
+
+    const doctorList = settledValue(doctorResult, [] as Doctor[])
+    const previousDoctors = doctors.value
+    doctors.value = doctorList
+    const appointmentRows = settledValue(appointmentResult, [] as Appointment[]).map(mapAppointment)
+    doctors.value = previousDoctors
+
+    const clinicalHistory = settledValue(historyResult, { visits: [], medicalRecords: [], prescriptions: [] } as PatientMedicalHistory)
+    const recordRows = (clinicalHistory.medicalRecords || []).map(mapRecord)
+    const prescriptionsFromHistory = clinicalHistory.prescriptions || []
+    const prescriptionsFromBilling = settledValue(prescriptionResult, [] as Prescription[])
+    const prescriptionRows = uniquePrescriptionsForReport([...prescriptionsFromHistory, ...prescriptionsFromBilling]).map(mapPrescription)
+    const invoiceRows = settledValue(invoiceResult, [] as Invoice[]).map(mapInvoice)
+
+    const html = buildMedicalProfilePrintHtml({
+      appointments: appointmentRows,
+      records: recordRows,
+      prescriptions: prescriptionRows,
+      invoices: invoiceRows,
+    })
+    printHtmlReport(html)
+    showToast('Đã tạo bản in PDF', 'Chọn máy in hoặc “Save as PDF” trong hộp thoại in của trình duyệt.', 'success')
+  } catch (downloadError) {
+    const message = getApiErrorMessage(downloadError)
+    error.value = message
+    showToast('Chưa tạo được bản in', message, 'error')
+  } finally {
+    profileDownloading.value = false
+  }
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T) {
+  return result.status === 'fulfilled' ? result.value : fallback
+}
+
+function uniquePrescriptionsForReport(items: Prescription[]) {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    const id = String(item.prescriptionId || item.id || item.prescriptionCode || '')
+    if (!id || seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+}
+
+function buildMedicalProfilePrintHtml(data: { appointments: Row[]; records: Row[]; prescriptions: Row[]; invoices: Row[] }) {
+  const exportedAt = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())
+  const reportTitle = `Ho so y te - ${profileForm.fullName || displayPatientCode.value}`
+  const patientRows = [
+    ['Mã bệnh nhân', displayPatientCode.value],
+    ['Họ và tên', profileForm.fullName || 'Chưa cập nhật'],
+    ['Ngày sinh', profileForm.dateOfBirth ? formatDate(profileForm.dateOfBirth) : 'Chưa cập nhật'],
+    ['Tuổi', profileAge.value],
+    ['Giới tính', profileForm.gender || 'Chưa cập nhật'],
+    ['Nhóm máu', profileForm.bloodType || 'Chưa cập nhật'],
+    ['CCCD', profileForm.citizenId || 'Chưa cập nhật'],
+    ['Email', profileForm.email || 'Chưa cập nhật'],
+    ['Số điện thoại', profileForm.phoneNumber || 'Chưa cập nhật'],
+    ['Địa chỉ', profileForm.address || 'Chưa cập nhật'],
+    ['Dị ứng', profileForm.allergyNote || 'Không ghi nhận'],
+    ['Tiền sử bệnh', profileForm.medicalHistory || 'Không ghi nhận'],
+  ]
+
+  return `<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(reportTitle)}</title>
+  <style>
+    @page { size: A4; margin: 14mm 12mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f1f5f9; color: #0f172a; font-family: Arial, "Helvetica Neue", sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    main { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 14mm 12mm; }
+    header { display: grid; grid-template-columns: 1fr auto; gap: 14px; border-bottom: 2px solid #dbeafe; padding-bottom: 14px; }
+    h1 { margin: 0; font-size: 24px; line-height: 1.2; color: #0f172a; }
+    h2 { margin: 0 0 10px; font-size: 15px; color: #0f172a; }
+    p { margin: 6px 0 0; color: #64748b; line-height: 1.5; font-size: 11px; }
+    section { margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10.5px; }
+    th, td { border: 1px solid #e2e8f0; padding: 6px 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    th { color: #334155; background: #eff6ff; font-size: 9px; text-transform: uppercase; letter-spacing: .03em; }
+    .badge { display: inline-flex; align-items: center; border-radius: 999px; background: #eff6ff; color: #1d4ed8; padding: 5px 10px; font-size: 11px; font-weight: 700; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; }
+    .item { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; min-height: 48px; }
+    .label { display: block; color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+    .value { display: block; margin-top: 4px; font-size: 11.5px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+    .empty { color: #94a3b8; font-style: italic; }
+    .note { margin-top: 10px; border-left: 4px solid #2563eb; background: #eff6ff; padding: 8px 10px; color: #1e3a8a; font-size: 10.5px; line-height: 1.5; }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .summary-card { border-radius: 10px; background: #f8fafc; padding: 9px; border: 1px solid #e2e8f0; }
+    .summary-card strong { display: block; margin-top: 4px; font-size: 16px; }
+    @media print { body { background: #fff; } main { width: auto; min-height: auto; margin: 0; padding: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Hồ sơ y tế cá nhân</h1>
+        <p>Xuất lúc ${escapeHtml(exportedAt)} từ hệ thống MedicareDNU. Báo cáo dùng để tham khảo và hỗ trợ trao đổi với nhân viên y tế.</p>
+      </div>
+      <span class="badge">${escapeHtml(displayPatientCode.value)}</span>
+    </header>
+    <div class="summary">
+      <div class="summary-card"><span class="label">Lịch hẹn</span><strong>${data.appointments.length}</strong></div>
+      <div class="summary-card"><span class="label">Bệnh án</span><strong>${data.records.length}</strong></div>
+      <div class="summary-card"><span class="label">Đơn thuốc</span><strong>${data.prescriptions.length}</strong></div>
+      <div class="summary-card"><span class="label">Viện phí</span><strong>${data.invoices.length}</strong></div>
+    </div>
+    <section>
+      <h2>Thông tin bệnh nhân</h2>
+      <div class="grid">${patientRows.map(([label, value]) => `<div class="item"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span></div>`).join('')}</div>
+      <div class="note">Nếu thông tin trên chưa chính xác, vui lòng cập nhật hồ sơ cá nhân trước khi in hoặc lưu PDF.</div>
+    </section>
+    ${reportTable('Lịch hẹn', data.appointments, ['id', 'doctorName', 'specialtyName', 'room', 'dateTime', 'reason', 'status'], ['Mã lịch', 'Bác sĩ', 'Chuyên khoa', 'Phòng', 'Thời gian', 'Lý do', 'Trạng thái'])}
+    ${reportTable('Hồ sơ bệnh án', data.records, ['id', 'diagnosis', 'symptoms', 'treatmentPlan', 'doctorNotes', 'createdAt'], ['Mã BA', 'Chẩn đoán', 'Triệu chứng', 'Điều trị', 'Ghi chú', 'Ngày tạo'])}
+    ${reportTable('Đơn thuốc', data.prescriptions, ['id', 'medicine', 'quantity', 'note', 'status'], ['Mã đơn', 'Thuốc', 'Số lượng', 'Ghi chú', 'Trạng thái'])}
+    ${reportTable('Viện phí', data.invoices, ['id', 'appointmentId', 'examFee', 'medicineTotal', 'amount', 'paidAmount', 'balanceDue', 'status'], ['Mã HĐ', 'Lịch hẹn', 'Phí khám', 'Tiền thuốc', 'Tổng tiền', 'Đã trả', 'Còn lại', 'Trạng thái'])}
+  </main>
+</body>
+</html>`
+}
+
+function reportTable(title: string, rowsToRender: Row[], keys: string[], labels: string[]) {
+  const body = rowsToRender.length
+    ? rowsToRender.map((row) => `<tr>${keys.map((key) => `<td>${escapeHtml(value(row, key))}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${keys.length}" class="empty">Chưa có dữ liệu</td></tr>`
+  return `<section><h2>${escapeHtml(title)}</h2><table><thead><tr>${labels.map((label) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></section>`
+}
+
+function printHtmlReport(html: string) {
+  const iframe = document.createElement('iframe')
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+  iframe.setAttribute('aria-hidden', 'true')
+  document.body.appendChild(iframe)
+
+  const frameWindow = iframe.contentWindow
+  const frameDocument = iframe.contentDocument || frameWindow?.document
+  if (!frameWindow || !frameDocument) {
+    iframe.remove()
+    throw new Error('Trình duyệt không hỗ trợ tạo bản in PDF.')
+  }
+
+  frameDocument.open()
+  frameDocument.write(html)
+  frameDocument.close()
+
+  const cleanup = () => setTimeout(() => iframe.remove(), 500)
+  frameWindow.onafterprint = cleanup
+  setTimeout(() => {
+    frameWindow.focus()
+    frameWindow.print()
+    setTimeout(() => {
+      if (document.body.contains(iframe)) iframe.remove()
+    }, 60000)
+  }, 250)
+}
+
+function escapeHtml(valueToEscape: unknown) {
+  return String(valueToEscape ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+async function copyText(text: string) {
+  if (!text) return
+  await navigator.clipboard?.writeText(text)
+  showToast('Đã copy', text, 'success')
+}
+
 function showToast(title: string, message: string, type: 'success' | 'error' = 'success') {
   toast.title = title
   toast.message = message
@@ -2185,6 +2642,25 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   line-height: 28px;
 }
 
+.appointment-reason-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appointment-reason-meta {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #8a99ad;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 :deep(.appointment-status) {
   margin: 0;
   border-radius: 999px;
@@ -2317,6 +2793,780 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 
   :deep(.appointment-table-shell .ant-pagination-total-text) {
     display: none;
+  }
+}
+
+/* ===========================
+   PREMIUM PROFILE PAGE STYLES
+   =========================== */
+
+.profile-note-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border: 1px solid #BFDBFE;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #EFF6FF, #F0F7FF);
+  color: #1E40AF;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.profile-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 2px;
+}
+
+.profile-page-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0F172A;
+  line-height: 1.2;
+}
+
+.profile-page-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748B;
+  line-height: 1.5;
+}
+
+.profile-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 14px;
+  background: #2563EB;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+  white-space: nowrap;
+}
+
+.profile-edit-btn:hover {
+  background: #1D4ED8;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.36);
+}
+
+.profile-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 28px 32px;
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 300ms ease;
+}
+
+.profile-summary-card:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 36px rgba(0, 0, 0, 0.06);
+}
+
+.profile-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+  min-width: 340px;
+}
+
+.profile-avatar-wrapper { position: relative; flex-shrink: 0; }
+
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  color: #2563EB;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  border: 2px solid #BFDBFE;
+}
+
+.profile-avatar-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #22C55E;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.4);
+}
+
+.profile-identity { min-width: 0; }
+
+.profile-identity-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94A3B8;
+}
+
+.profile-identity-name {
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.profile-identity-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-patient-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #EFF6FF;
+  color: #2563EB;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
+.profile-updated-text {
+  font-size: 12px;
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+.profile-summary-divider {
+  width: 1px;
+  align-self: stretch;
+  background: #E5E7EB;
+  flex-shrink: 0;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.9fr) auto minmax(118px, 1fr) auto minmax(112px, 1fr) auto minmax(120px, 1fr);
+  align-items: center;
+  gap: 18px;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-stat {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.profile-stat > div:last-child {
+  min-width: 0;
+}
+
+.profile-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #EFF6FF;
+  color: #2563EB;
+  flex-shrink: 0;
+}
+
+.profile-stat-icon--red { background: #FEF2F2; color: #EF4444; }
+.profile-stat-icon--purple { background: #F5F3FF; color: #7C3AED; }
+.profile-stat-icon--green { background: #F0FDF4; color: #22C55E; }
+
+.profile-stat-separator {
+  width: 1px;
+  height: 40px;
+  background: #E5E7EB;
+  flex-shrink: 0;
+}
+
+.profile-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+}
+
+.profile-stat-value {
+  margin-top: 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F172A;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.profile-stat-sub {
+  margin-top: 1px;
+  font-size: 11px;
+  color: #94A3B8;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.profile-status-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #DCFCE7;
+  color: #15803D;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+}
+
+.profile-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.profile-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.profile-card {
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  transition: box-shadow 300ms ease;
+}
+
+.profile-card:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 36px rgba(0, 0, 0, 0.06);
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 0;
+}
+
+.profile-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #EFF6FF;
+  color: #2563EB;
+  flex-shrink: 0;
+}
+
+.profile-card-icon--indigo { background: #EEF2FF; color: #4F46E5; }
+.profile-card-icon--rose { background: #FFF1F2; color: #E11D48; }
+.profile-card-icon--slate { background: #F1F5F9; color: #475569; }
+.profile-card-icon--amber { background: #FFFBEB; color: #D97706; }
+.profile-card-icon--sky { background: #F0F9FF; color: #0284C7; }
+
+.profile-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.profile-card-body { padding: 16px 24px 24px; }
+
+.profile-card-divider {
+  margin: 4px 24px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.profile-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 24px;
+  border-top: 1px solid #F1F5F9;
+  margin-top: 4px;
+  padding-top: 20px;
+}
+
+.profile-form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.profile-form-grid-4 { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(170px, 1fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr); gap: 16px; }
+.profile-form-grid-medical { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.profile-field--full { grid-column: 1 / -1; }
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-field-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.profile-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.profile-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #94A3B8;
+  pointer-events: none;
+}
+
+.profile-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 42px;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0F172A;
+  font-size: 13.5px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+
+.profile-input--with-action {
+  padding-right: 48px;
+}
+
+.profile-input--mono {
+  font-family: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  letter-spacing: 0;
+}
+
+.profile-input:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.profile-input--disabled {
+  background: #F8FAFC;
+  color: #64748B;
+  cursor: not-allowed;
+  border-color: #F1F5F9;
+}
+
+.profile-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0F172A;
+  font-size: 13.5px;
+  font-weight: 500;
+  outline: none;
+  resize: vertical;
+  transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+
+.profile-textarea:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.profile-textarea--disabled {
+  background: #F8FAFC;
+  color: #64748B;
+  cursor: not-allowed;
+  border-color: #F1F5F9;
+}
+
+.profile-copy-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #94A3B8;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.profile-copy-btn:hover {
+  background: #F1F5F9;
+  color: #2563EB;
+}
+
+.profile-password-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.profile-security-visual {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.profile-security-shield {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  flex-shrink: 0;
+}
+
+.profile-security-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.profile-security-info { margin-bottom: 16px; }
+
+.profile-security-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.profile-security-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.profile-security-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22C55E;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.profile-security-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 14px;
+  background: #2563EB;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+}
+
+.profile-security-btn:hover {
+  background: #1D4ED8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+}
+
+.profile-health-note-card {
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+  border: 1px solid #A7F3D0;
+  padding: 20px 24px;
+  overflow: hidden;
+}
+
+.profile-health-note-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-health-note-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #065F46;
+}
+
+.profile-health-note-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.profile-health-note-illustration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.profile-health-note-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #047857;
+  line-height: 1.6;
+}
+
+.profile-download-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #F0F9FF, #E0F2FE);
+  margin-bottom: 12px;
+}
+
+.profile-download-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748B;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.profile-download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  border: 1.5px dashed #CBD5E1;
+  border-radius: 12px;
+  background: #F8FAFC;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.profile-download-btn:hover {
+  border-color: #2563EB;
+  background: #EFF6FF;
+  color: #2563EB;
+}
+
+.profile-download-btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.profile-download-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #bfdbfe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: profile-spin 800ms linear infinite;
+}
+
+@keyframes profile-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes profile-spin {
+  to { transform: rotate(360deg); }
+}
+
+.profile-page .profile-summary-card,
+.profile-page .profile-card,
+.profile-page .profile-health-note-card {
+  animation: profile-fade-in 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.profile-page .profile-summary-card { animation-delay: 50ms; }
+.profile-page .profile-left-col > .profile-card { animation-delay: 120ms; }
+.profile-page .profile-right-col > :nth-child(1) { animation-delay: 180ms; }
+.profile-page .profile-right-col > :nth-child(2) { animation-delay: 240ms; }
+.profile-page .profile-right-col > :nth-child(3) { animation-delay: 300ms; }
+.profile-page .profile-right-col > :nth-child(4) { animation-delay: 360ms; }
+
+@media (max-width: 1180px) {
+  .profile-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-right-col {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .profile-summary-card {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .profile-summary-divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .profile-stats {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .profile-stat-separator {
+    display: none;
+  }
+
+  .profile-form-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .profile-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profile-edit-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .profile-summary-card,
+  .profile-card,
+  .profile-health-note-card {
+    border-radius: 14px;
+  }
+
+  .profile-summary-card {
+    padding: 22px;
+  }
+
+  .profile-summary-left {
+    width: 100%;
+  }
+
+  .profile-form-grid-2,
+  .profile-form-grid-4,
+  .profile-form-grid-medical,
+  .profile-right-col {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-card-header {
+    padding: 18px 18px 0;
+  }
+
+  .profile-card-body {
+    padding: 14px 18px 20px;
+  }
+
+  .profile-card-footer {
+    padding-inline: 18px;
+    padding-bottom: 20px;
+  }
+}
+
+@media (max-width: 520px) {
+  .profile-page-title {
+    font-size: 1.55rem;
+  }
+
+  .profile-summary-left,
+  .profile-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-summary-left,
+  .profile-stat {
+    align-items: flex-start;
+  }
+
+  .profile-stats {
+    display: flex;
+    flex-direction: column;
   }
 }
 </style>

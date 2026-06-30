@@ -76,6 +76,15 @@ public sealed record PatientSummaryDto(
     string? PhoneNumber,
     string Status);
 
+public sealed record PatientLookupDto(
+    int Id,
+    string? PatientCode,
+    string FullName,
+    string? PhoneNumber,
+    DateOnly? DateOfBirth,
+    string? Gender,
+    string Status);
+
 public sealed record PatientDetailDto(
     int Id,
     string? PatientCode,

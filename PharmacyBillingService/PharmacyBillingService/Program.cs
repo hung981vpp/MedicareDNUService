@@ -49,6 +49,7 @@ builder.Services.AddSingleton<IEventPublisher, EventPublisher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IMedicineService, MedicineService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IInventorySlipService, InventorySlipService>();
 builder.Services.AddScoped<IPrescriptionService, PrescriptionService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<IReportService, ReportService>();

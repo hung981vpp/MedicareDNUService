@@ -18,6 +18,15 @@ public sealed class PatientsController(IMedicalRecordService service) : MedicalC
         [FromQuery] int pageSize = 10)
         => ToActionResult(service.SearchPatients(keyword, pageNumber, pageSize));
 
+    [HttpGet("lookup")]
+    [Authorize(Roles = "Admin,Doctor,Nurse,Receptionist,Patient")]
+    [EndpointSummary("Tìm bệnh nhân để đặt lịch hộ")]
+    [EndpointDescription("Trả về thông tin tối thiểu của bệnh nhân để chọn người đi khám cùng. Không trả bệnh sử, CCCD, email hoặc dữ liệu bệnh án.")]
+    public IActionResult LookupForBooking(
+        [FromQuery] string? keyword,
+        [FromQuery] int limit = 20)
+        => ToActionResult(service.LookupPatientsForBooking(keyword, limit));
+
     [HttpGet("me")]
     [Authorize(Roles = "Patient")]
     [EndpointSummary("Hồ sơ bệnh nhân của tôi")]

@@ -32,3 +32,8 @@ docker-log-backup.txt
 
 # PDFs
 *.pdf
+
+# System & tool configs
+.config/
+.npm/
+.nvm/

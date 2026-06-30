@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net;
+using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -57,6 +58,29 @@ public sealed class MedicalRecordService(
         return Result<PagedList<PatientDetailDto>>.Ok(
             PagedList<PatientDetailDto>.Create(patients, pageNumber, pageSize),
             "Lấy danh sách bệnh nhân thành công");
+    }
+
+    public Result<IReadOnlyList<PatientLookupDto>> LookupPatientsForBooking(string? keyword, int limit)
+    {
+        var normalized = keyword?.Trim();
+        var safeLimit = Math.Clamp(limit <= 0 ? 20 : limit, 1, 50);
+        var lookup = NormalizeLookupText(normalized);
+
+        var patients = db.Patients
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted)
+            .Select(p => new PatientLookupDto(p.Id, p.PatientCode, p.FullName, p.PhoneNumber, p.DateOfBirth, p.Gender, p.Status))
+            .AsEnumerable()
+            .Where(p => string.IsNullOrWhiteSpace(lookup)
+                || NormalizeLookupText(p.FullName).Contains(lookup)
+                || NormalizeLookupText(p.PatientCode).Contains(lookup)
+                || NormalizeLookupText(p.PhoneNumber).Contains(lookup))
+            .OrderBy(p => p.FullName)
+            .ThenBy(p => p.Id)
+            .Take(safeLimit)
+            .ToList();
+
+        return Result<IReadOnlyList<PatientLookupDto>>.Ok(patients, "Tìm bệnh nhân đặt hộ thành công");
     }
 
     public Result<PatientDetailDto> GetPatient(int id)
@@ -1596,6 +1620,9 @@ public sealed class MedicalRecordService(
     private static PatientSummaryDto ToSummary(Patient patient)
         => new(patient.Id, patient.PatientCode, patient.FullName, patient.PhoneNumber, patient.Status);
 
+    private static PatientLookupDto ToLookup(Patient patient)
+        => new(patient.Id, patient.PatientCode, patient.FullName, patient.PhoneNumber, patient.DateOfBirth, patient.Gender, patient.Status);
+
     private static PatientDetailDto ToDetail(Patient patient)
         => new(patient.Id, patient.PatientCode, patient.FullName, patient.DateOfBirth, patient.Gender, patient.PhoneNumber,
             patient.Email, patient.Address, patient.CitizenId, patient.BloodType, patient.AllergyNote, patient.MedicalHistory,
@@ -1649,6 +1676,24 @@ public sealed class MedicalRecordService(
     private static OutboxEventDto ToOutboxDto(OutboxEvent e)
         => new(e.Id, e.EventCode, e.EventType, e.AggregateType, e.AggregateId, e.Payload, e.Status, e.OccurredAt, e.PublishedAt, e.RetryCount, e.ErrorMessage);
 
+    private static string NormalizeLookupText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder
+            .ToString()
+            .Normalize(NormalizationForm.FormC)
+            .Replace('đ', 'd');
+    }
 
     private static string CapitalizeFullName(string name)
     {

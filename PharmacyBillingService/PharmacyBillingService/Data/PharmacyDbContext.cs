@@ -19,6 +19,8 @@ namespace PharmacyBillingService.Data
         public DbSet<Invoice> Invoices { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
         public DbSet<StockTransaction> StockTransactions { get; set; } = null!;
+        public DbSet<InventorySlip> InventorySlips { get; set; } = null!;
+        public DbSet<InventorySlipItem> InventorySlipItems { get; set; } = null!;
         public DbSet<ProcessedEvent> ProcessedEvents { get; set; } = null!;
         public DbSet<PaymentWebhookLog> PaymentWebhookLogs { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
@@ -128,6 +130,35 @@ namespace PharmacyBillingService.Data
                 .WithMany()
                 .HasForeignKey(st => st.BatchId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Configure relations for InventorySlip (Maker-Checker approval flow)
+            modelBuilder.Entity<InventorySlip>()
+                .HasIndex(s => s.SlipCode)
+                .IsUnique();
+
+            modelBuilder.Entity<InventorySlip>()
+                .HasOne(s => s.Creator)
+                .WithMany()
+                .HasForeignKey(s => s.CreatedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InventorySlip>()
+                .HasOne(s => s.Approver)
+                .WithMany()
+                .HasForeignKey(s => s.ApprovedBy)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<InventorySlip>()
+                .HasMany(s => s.Items)
+                .WithOne(i => i.Slip)
+                .HasForeignKey(i => i.SlipId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<InventorySlipItem>()
+                .HasOne(i => i.Medicine)
+                .WithMany()
+                .HasForeignKey(i => i.MedicineId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Seed default Users (N3 roles: Admin, Nurse, Pharmacist, Patient)
             modelBuilder.Entity<User>().HasData(

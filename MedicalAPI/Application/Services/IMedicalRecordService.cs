@@ -6,6 +6,7 @@ namespace MedicalAPI.Application.Services;
 public interface IMedicalRecordService
 {
     Result<PagedList<PatientDetailDto>> SearchPatients(string? keyword, int pageNumber, int pageSize);
+    Result<IReadOnlyList<PatientLookupDto>> LookupPatientsForBooking(string? keyword, int limit);
     Result<PatientDetailDto> GetPatient(int id);
     Result<PatientDetailDto> GetPatientByKey(string patientKey, int? currentUserId, int? currentPatientId, string? currentEmail, string? currentFullName);
     Result<PatientDetailDto> CreatePatient(PatientCreateRequest request);
