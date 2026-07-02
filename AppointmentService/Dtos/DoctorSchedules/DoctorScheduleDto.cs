@@ -8,6 +8,8 @@ public sealed class DoctorScheduleDto
 
     public string DoctorName { get; init; } = string.Empty;
 
+    public string RoomNumber { get; init; } = string.Empty;
+
     public DateOnly WorkDate { get; init; }
 
     public TimeOnly StartTime { get; init; }

@@ -1213,6 +1213,7 @@ public sealed class DbAppointmentService : IAppointmentService
             ScheduleId = schedule.Id,
             DoctorId = schedule.DoctorId,
             DoctorName = doctor.FullName,
+            RoomNumber = doctor.RoomNumber,
             WorkDate = schedule.WorkDate,
             StartTime = schedule.StartTime,
             EndTime = schedule.EndTime,
