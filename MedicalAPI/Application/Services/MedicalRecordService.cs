@@ -416,12 +416,12 @@ public sealed class MedicalRecordService(
             return Forbidden<VisitDetailDto>("Bác sĩ chỉ được cập nhật sinh hiệu lượt khám thuộc mình");
         if (visit.Status == MedicalStatuses.InProgress || visit.Status == MedicalStatuses.Completed || visit.Status == MedicalStatuses.Cancelled)
             return Conflict<VisitDetailDto>("Chỉ cập nhật sinh hiệu trước khi bác sĩ bắt đầu khám.");
-        if (!HasRequiredVitalSigns(request))
+        if (!HasMeasuredVitalSigns(request) && string.IsNullOrWhiteSpace(request.Note))
             return Invalid<VisitDetailDto>(
                 "Dữ liệu sinh hiệu không hợp lệ",
                 "vitalSigns",
                 "REQUIRED",
-                "Vui lòng nhập đầy đủ nhiệt độ, huyết áp, nhịp tim, chiều cao và cân nặng.");
+                "Vui lòng nhập ít nhất một chỉ số sinh hiệu hoặc ghi chú điều dưỡng.");
 
         visit.VitalSignsJson = JsonSerializer.Serialize(request);
         visit.Status = MedicalStatuses.WaitingForExam;
@@ -1718,15 +1718,6 @@ public sealed class MedicalRecordService(
             || request.Spo2.HasValue
             || request.Weight.HasValue
             || request.Height.HasValue;
-
-    private static bool HasRequiredVitalSigns(VisitVitalsRequest request)
-        => request.Temperature.HasValue
-            && !string.IsNullOrWhiteSpace(request.BloodPressure)
-            && request.HeartRate.HasValue
-            && request.RespiratoryRate.HasValue
-            && request.Spo2.HasValue
-            && request.Weight.HasValue
-            && request.Height.HasValue;
 
     private static bool HasMeasuredVitalSigns(string? json)
     {

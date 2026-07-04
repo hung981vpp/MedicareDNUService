@@ -173,14 +173,14 @@
             </div>
             <div class="text-left">
               <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                <span>Lịch hẹn hôm nay</span>
+                <span>Lịch hẹn xem trước</span>
                 <span class="relative flex h-2 w-2">
                   <span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
                   <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                 </span>
               </div>
               <p class="text-[11px] font-semibold text-emerald-600">
-                {{ doctorTodayCount ?? 0 }} ca hẹn cần thực hiện
+                {{ doctorTodayCount ?? 0 }} lịch hẹn hôm nay
               </p>
             </div>
           </RouterLink>
@@ -444,7 +444,7 @@ const contextStatus = computed(() => {
   }
   if (authStore.isDoctor) {
     const count = doctorTodayCount.value ?? 8
-    return { message: `Hôm nay bác sĩ có ${count} ca khám lịch hẹn cần thực hiện.`, pulseClass: '' }
+    return { message: `Hôm nay bác sĩ có ${count} lịch hẹn để xem trước.`, pulseClass: '' }
   }
   if (authStore.isReceptionist) {
     const count = receptionistPendingCount.value ?? 3
