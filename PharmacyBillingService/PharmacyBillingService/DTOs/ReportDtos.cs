@@ -33,4 +33,17 @@ namespace PharmacyBillingService.DTOs
         public int MinStockLevel { get; set; }
         public string Status { get; set; } = string.Empty;
     }
+
+    public class DashboardRevenueTrendDto
+    {
+        public DateTime Date { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    public class PharmacyDashboardSummaryDto
+    {
+        public decimal TotalRevenue { get; set; }
+        public int DispatchedPrescriptions { get; set; }
+        public List<DashboardRevenueTrendDto> RevenueTrends { get; set; } = new();
+    }
 }

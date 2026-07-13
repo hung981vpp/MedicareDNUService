@@ -16,6 +16,7 @@ namespace PharmacyBillingService.Services
         Task<List<TopMedicineDto>> GetTopMedicinesAsync(int count);
         Task<List<InvoiceDto>> GetUnpaidInvoicesAsync();
         Task<List<LowStockReportDto>> GetLowStockReportAsync();
+        Task<PharmacyDashboardSummaryDto> GetDashboardSummaryAsync(DateTime startDate, DateTime endDate);
     }
 
     public class ReportService : IReportService
@@ -115,6 +116,42 @@ namespace PharmacyBillingService.Services
                 MinStockLevel = m.MinStockLevel,
                 Status = m.Status
             }).ToList();
+        }
+
+        public async Task<PharmacyDashboardSummaryDto> GetDashboardSummaryAsync(DateTime startDate, DateTime endDate)
+        {
+            var normalizedStart = startDate.Date;
+            var normalizedEndExclusive = endDate.Date.AddDays(1);
+
+            var payments = await _context.Payments
+                .AsNoTracking()
+                .Where(p => (p.PaymentStatus == "Success" || p.PaymentStatus == "Refund")
+                    && p.PaidAt >= normalizedStart
+                    && p.PaidAt < normalizedEndExclusive)
+                .ToListAsync();
+
+            var revenueTrends = payments
+                .GroupBy(p => p.PaidAt.Date)
+                .Select(g => new DashboardRevenueTrendDto
+                {
+                    Date = g.Key,
+                    Amount = g.Sum(NetPaymentAmount)
+                })
+                .OrderBy(r => r.Date)
+                .ToList();
+
+            var dispatchedPrescriptions = await _context.Prescriptions
+                .AsNoTracking()
+                .CountAsync(p => p.Status == "Dispensed"
+                    && p.CreatedAt >= normalizedStart
+                    && p.CreatedAt < normalizedEndExclusive);
+
+            return new PharmacyDashboardSummaryDto
+            {
+                TotalRevenue = payments.Sum(NetPaymentAmount),
+                DispatchedPrescriptions = dispatchedPrescriptions,
+                RevenueTrends = revenueTrends
+            };
         }
 
         private static InvoiceDto MapToInvoiceDto(Invoice invoice)

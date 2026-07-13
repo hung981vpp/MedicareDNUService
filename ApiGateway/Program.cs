@@ -1,4 +1,6 @@
 using System.Text;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -50,6 +52,7 @@ builder.Services.AddHttpClient("swagger-proxy")
     {
         AllowAutoRedirect = false
     });
+builder.Services.AddHttpClient("report-aggregator");
 builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();
@@ -168,6 +171,47 @@ app.Map("/{service}/swagger/{**path}", async (
 {
     await ProxySwaggerAsync(service, path ?? string.Empty, context, httpClientFactory, appointmentBaseUrl, medicalBaseUrl, pharmacyBaseUrl);
 }).AllowAnonymous();
+
+app.MapGet("/api/reports/dashboard-summary", async Task<IResult> (
+    DateOnly? startDate,
+    DateOnly? endDate,
+    HttpContext context,
+    IHttpClientFactory httpClientFactory) =>
+{
+    var range = ResolveReportDateRange(startDate, endDate);
+    if (range.StartDate > range.EndDate)
+    {
+        return Results.BadRequest(GatewayApiResponse<DashboardSummaryResponse>.Fail("endDate must be greater than or equal to startDate."));
+    }
+
+    try
+    {
+        var data = await GetDashboardSummaryAsync(
+            httpClientFactory.CreateClient("report-aggregator"),
+            appointmentBaseUrl,
+            medicalBaseUrl,
+            pharmacyBaseUrl,
+            context,
+            range.StartDate,
+            range.EndDate);
+
+        return Results.Ok(GatewayApiResponse<DashboardSummaryResponse>.Ok(data, "Dashboard report aggregated successfully."));
+    }
+    catch (HttpRequestException ex)
+    {
+        return Results.Problem(
+            title: "Unable to aggregate dashboard report.",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status502BadGateway);
+    }
+    catch (JsonException ex)
+    {
+        return Results.Problem(
+            title: "Invalid dashboard report response.",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status502BadGateway);
+    }
+}).RequireAuthorization();
 
 app.UseWebSockets();
 await app.UseOcelot();
@@ -364,4 +408,174 @@ static void CopyResponseHeaders(HttpResponse response, HttpResponseMessage respo
     }
 
     response.Headers.Remove("transfer-encoding");
+}
+
+static (DateOnly StartDate, DateOnly EndDate) ResolveReportDateRange(DateOnly? startDate, DateOnly? endDate)
+{
+    var end = endDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var start = startDate ?? end.AddDays(-29);
+    return (start, end);
+}
+
+static async Task<DashboardSummaryResponse> GetDashboardSummaryAsync(
+    HttpClient httpClient,
+    Uri appointmentBaseUrl,
+    Uri medicalBaseUrl,
+    Uri pharmacyBaseUrl,
+    HttpContext context,
+    DateOnly startDate,
+    DateOnly endDate)
+{
+    var query = $"?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}";
+    var appointmentTask = GetDownstreamDataAsync<AppointmentDashboardSummary>(
+        httpClient,
+        new Uri(appointmentBaseUrl, $"/api/reports/dashboard-summary{query}"),
+        context);
+    var medicalTask = GetDownstreamDataAsync<MedicalDashboardSummary>(
+        httpClient,
+        new Uri(medicalBaseUrl, $"/api/v1/medical/reports/dashboard-summary{query}"),
+        context);
+    var pharmacyTask = GetDownstreamDataAsync<PharmacyDashboardSummary>(
+        httpClient,
+        new Uri(pharmacyBaseUrl, $"/api/reports/dashboard-summary{query}"),
+        context);
+
+    await Task.WhenAll(appointmentTask, medicalTask, pharmacyTask);
+
+    var appointment = await appointmentTask;
+    var medical = await medicalTask;
+    var pharmacy = await pharmacyTask;
+    var appointmentTrendByDate = appointment.AppointmentTrends
+        .GroupBy(item => ParseReportDate(item.Date))
+        .ToDictionary(group => group.Key, group => group.Sum(item => item.Count));
+    var revenueTrendByDate = pharmacy.RevenueTrends
+        .GroupBy(item => ParseReportDate(item.Date))
+        .ToDictionary(group => group.Key, group => group.Sum(item => item.Amount));
+
+    var trendDates = Enumerable.Range(0, endDate.DayNumber - startDate.DayNumber + 1)
+        .Select(startDate.AddDays)
+        .ToList();
+
+    return new DashboardSummaryResponse
+    {
+        TotalRevenue = pharmacy.TotalRevenue,
+        TotalAppointments = appointment.TotalAppointments,
+        NewPatientsCount = medical.NewPatientsCount,
+        DispatchedPrescriptions = pharmacy.DispatchedPrescriptions,
+        RevenueTrends = trendDates
+            .Select(date => new RevenueTrendPoint(date.ToString("yyyy-MM-dd"), revenueTrendByDate.GetValueOrDefault(date)))
+            .ToList(),
+        AppointmentTrends = trendDates
+            .Select(date => new AppointmentTrendPoint(date.ToString("yyyy-MM-dd"), appointmentTrendByDate.GetValueOrDefault(date)))
+            .ToList(),
+        SpecialtyDistribution = appointment.SpecialtyDistribution,
+        AppointmentStatusRatio = appointment.AppointmentStatusRatio
+    };
+}
+
+static async Task<T> GetDownstreamDataAsync<T>(HttpClient httpClient, Uri uri, HttpContext context)
+{
+    using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+    var authorization = context.Request.Headers.Authorization.ToString();
+    if (!string.IsNullOrWhiteSpace(authorization))
+    {
+        request.Headers.Authorization = AuthenticationHeaderValue.Parse(authorization);
+    }
+
+    using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+    var payload = await response.Content.ReadAsStringAsync(context.RequestAborted);
+    if (!response.IsSuccessStatusCode)
+    {
+        throw new HttpRequestException($"{uri.AbsolutePath} returned {(int)response.StatusCode}: {payload}");
+    }
+
+    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+    var envelope = JsonSerializer.Deserialize<GatewayApiResponse<T>>(payload, options);
+    if (envelope is { Success: true, Data: not null })
+    {
+        return envelope.Data;
+    }
+
+    if (envelope is { Success: false })
+    {
+        throw new HttpRequestException(envelope.Message);
+    }
+
+    return JsonSerializer.Deserialize<T>(payload, options)
+        ?? throw new JsonException($"Unable to deserialize dashboard response from {uri.AbsolutePath}.");
+}
+
+static DateOnly ParseReportDate(string value)
+{
+    if (DateOnly.TryParse(value, out var dateOnly))
+    {
+        return dateOnly;
+    }
+
+    if (DateTime.TryParse(value, out var dateTime))
+    {
+        return DateOnly.FromDateTime(dateTime);
+    }
+
+    return DateOnly.FromDateTime(DateTime.UtcNow);
+}
+
+public sealed class GatewayApiResponse<T>
+{
+    public bool Success { get; init; }
+    public string Message { get; init; } = string.Empty;
+    public T? Data { get; init; }
+    public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
+    public DateTime Timestamp { get; init; } = DateTime.UtcNow;
+
+    public static GatewayApiResponse<T> Ok(T data, string message) => new()
+    {
+        Success = true,
+        Message = message,
+        Data = data
+    };
+
+    public static GatewayApiResponse<T> Fail(string message, IReadOnlyList<string>? errors = null) => new()
+    {
+        Success = false,
+        Message = message,
+        Errors = errors ?? Array.Empty<string>()
+    };
+}
+
+public sealed class DashboardSummaryResponse
+{
+    public decimal TotalRevenue { get; init; }
+    public int TotalAppointments { get; init; }
+    public int NewPatientsCount { get; init; }
+    public int DispatchedPrescriptions { get; init; }
+    public List<RevenueTrendPoint> RevenueTrends { get; init; } = new();
+    public List<AppointmentTrendPoint> AppointmentTrends { get; init; } = new();
+    public List<SpecialtyDistributionPoint> SpecialtyDistribution { get; init; } = new();
+    public List<AppointmentStatusPoint> AppointmentStatusRatio { get; init; } = new();
+}
+
+public sealed record RevenueTrendPoint(string Date, decimal Amount);
+public sealed record AppointmentTrendPoint(string Date, int Count);
+public sealed record SpecialtyDistributionPoint(string SpecialtyName, int AppointmentCount);
+public sealed record AppointmentStatusPoint(string Status, int Count);
+
+public sealed class PharmacyDashboardSummary
+{
+    public decimal TotalRevenue { get; init; }
+    public int DispatchedPrescriptions { get; init; }
+    public List<RevenueTrendPoint> RevenueTrends { get; init; } = new();
+}
+
+public sealed class AppointmentDashboardSummary
+{
+    public int TotalAppointments { get; init; }
+    public List<AppointmentTrendPoint> AppointmentTrends { get; init; } = new();
+    public List<SpecialtyDistributionPoint> SpecialtyDistribution { get; init; } = new();
+    public List<AppointmentStatusPoint> AppointmentStatusRatio { get; init; } = new();
+}
+
+public sealed class MedicalDashboardSummary
+{
+    public int NewPatientsCount { get; init; }
 }

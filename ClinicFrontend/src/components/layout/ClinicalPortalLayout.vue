@@ -361,7 +361,7 @@ const initials = computed(() => displayName.value.trim().charAt(0).toUpperCase()
 const roleName = computed(() => {
   if (authStore.isAdmin) return 'Quản trị viên'
   if (authStore.isDoctor) return 'Bác sĩ'
-  if (authStore.isReceptionist) return 'Điều phối y tế'
+  if (authStore.isReceptionist) return 'Y tá'
   if (authStore.isPatient) return 'Bệnh nhân'
   return 'Clinical Portal'
 })
